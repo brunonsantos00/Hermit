@@ -5,11 +5,12 @@
 #>
 param(
     [string]$Saida,        # padrão: BackupMigracao.exe na raiz
-    [string]$Embutir       # .zip do projeto para embutir (versão portátil)
+    [string]$Embutir,      # .zip do projeto para embutir (versão portátil)
+    [switch]$Comparador    # gera o Comparador.exe em vez do BackupMigracao.exe
 )
 
 $raiz = Split-Path $PSScriptRoot -Parent
-if (-not $Saida) { $Saida = Join-Path $raiz 'BackupMigracao.exe' }
+if (-not $Saida) { $Saida = Join-Path $raiz $(if ($Comparador) { 'Comparador.exe' } else { 'BackupMigracao.exe' }) }
 $csc = "$env:WINDIR\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
 if (-not (Test-Path $csc)) { $csc = "$env:WINDIR\Microsoft.NET\Framework\v4.0.30319\csc.exe" }
 if (-not (Test-Path $csc)) { Write-Host 'Compilador C# (.NET Framework 4) não encontrado.' -ForegroundColor Red; exit 1 }
@@ -18,6 +19,7 @@ $opcoes = @('/nologo', '/target:winexe', '/optimize+', '/codepage:65001',
             "/win32icon:$raiz\assets\icone.ico", "/out:$Saida",
             '/reference:System.Windows.Forms.dll', '/reference:System.IO.Compression.dll', '/reference:System.IO.Compression.FileSystem.dll')
 if ($Embutir) { $opcoes += "/resource:$Embutir,hermit.zip" }
+if ($Comparador) { $opcoes += '/define:COMPARADOR' }
 
 & $csc @opcoes "$PSScriptRoot\BackupMigracao.cs"
 

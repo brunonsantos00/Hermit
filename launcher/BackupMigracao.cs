@@ -5,6 +5,7 @@
 //  - Portátil: o projeto vai embutido no .exe (recurso "hermit.zip"). Na primeira vez ele é
 //              extraído para %LOCALAPPDATA%\Hermit\<versão> e o painel é aberto de lá.
 // Compile com launcher\compilar.ps1 (normal) ou launcher\gerar-release.ps1 (portátil + .zip).
+// Com /define:COMPARADOR o mesmo código gera o Comparador.exe, que abre windows\comparador.ps1.
 
 using System;
 using System.Diagnostics;
@@ -14,7 +15,11 @@ using System.IO.Compression;
 using System.Reflection;
 using System.Windows.Forms;
 
+#if COMPARADOR
+[assembly: AssemblyTitle("Hermit - Comparador de backup")]
+#else
 [assembly: AssemblyTitle("Hermit - Backup e Migração")]
+#endif
 [assembly: AssemblyProduct("Hermit")]
 [assembly: AssemblyDescription("Backup e migração de computadores Windows e Linux")]
 [assembly: AssemblyVersion("2.1.0.0")]
@@ -23,6 +28,11 @@ using System.Windows.Forms;
 static class Programa
 {
     const string Versao = "2.1";
+#if COMPARADOR
+    const string Script = "comparador.ps1";
+#else
+    const string Script = "painel.ps1";
+#endif
     static bool ingles;
 
     // Mesmo critério do painel: escolha salva no painel, senão o idioma do Windows
@@ -53,7 +63,7 @@ static class Programa
             if (zip == null) return null;
             string destino = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                                           "Hermit", Versao);
-            string painel = Path.Combine(destino, "windows", "painel.ps1");
+            string painel = Path.Combine(destino, "windows", Script);
             if (File.Exists(painel)) return painel;
 
             string temporario = destino + ".tmp";
@@ -80,8 +90,12 @@ static class Programa
     static void Main()
     {
         ingles = UsarIngles();
+        #if COMPARADOR
+        string titulo = L("Comparador de backup", "Backup comparison");
+#else
         string titulo = L("Backup e Migração", "Backup and Migration");
-        string painel = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "windows", "painel.ps1");
+#endif
+        string painel = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "windows", Script);
 
         if (!File.Exists(painel))
         {
