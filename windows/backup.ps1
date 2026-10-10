@@ -1,20 +1,25 @@
 ﻿<#
-    BACKUP DO COMPUTADOR
-    --------------------
+    BACKUP DO COMPUTADOR / COMPUTER BACKUP
+    --------------------------------------
     Como usar: copie esta pasta para o HD externo (ou outro disco) e dê dois cliques em "1-FAZER-BACKUP.bat".
     O backup é salvo em <DISCO>:\BACKUP_PC\<NOME-DO-PC>_<data>\
+    Idioma: -Idioma pt | en (padrão: o escolhido no painel, ou o idioma do Windows)
 #>
+param([string]$Idioma)
+
+. (Join-Path $PSScriptRoot 'idioma.ps1')
+$script:idioma = Get-Idioma $Idioma
 
 # ---------- Rodar como administrador ----------
 $principal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
 if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
     try {
-        Start-Process powershell.exe -Verb RunAs -ErrorAction Stop -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`""
+        Start-Process powershell.exe -Verb RunAs -ErrorAction Stop -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`" -Idioma $script:idioma"
     } catch {
         Write-Host ''
-        Write-Host '  [X] É preciso clicar em "SIM" na janela de permissão do Windows.' -ForegroundColor Red
-        Write-Host '      Rode o .bat de novo e aceite.' -ForegroundColor Red
-        Read-Host '  Pressione ENTER para fechar' | Out-Null
+        Write-Host (L '  [X] É preciso clicar em "SIM" na janela de permissão do Windows.' '  [X] You need to click "YES" on the Windows permission prompt.') -ForegroundColor Red
+        Write-Host (L '      Rode o .bat de novo e aceite.' '      Run the .bat again and accept it.') -ForegroundColor Red
+        Read-Host (L '  Pressione ENTER para fechar' '  Press ENTER to close') | Out-Null
     }
     exit
 }
@@ -26,16 +31,16 @@ try { Start-Transcript -Path $script:transcript -Force | Out-Null } catch {}
 # Se acontecer qualquer erro grave, mostra na tela e NÃO fecha a janela
 trap {
     Write-Host ''
-    Write-Host "  [X] ERRO: $($_.Exception.Message)" -ForegroundColor Red
-    Write-Host "      Linha $($_.InvocationInfo.ScriptLineNumber): $($_.InvocationInfo.Line.Trim())" -ForegroundColor Red
-    Write-Host "      Registro salvo em: $script:transcript" -ForegroundColor Red
+    Write-Host "  [X] $(L 'ERRO' 'ERROR'): $($_.Exception.Message)" -ForegroundColor Red
+    Write-Host "      $(L 'Linha' 'Line') $($_.InvocationInfo.ScriptLineNumber): $($_.InvocationInfo.Line.Trim())" -ForegroundColor Red
+    Write-Host "      $(L 'Registro salvo em' 'Log saved to'): $script:transcript" -ForegroundColor Red
     try { Stop-Transcript | Out-Null } catch {}
-    Read-Host '  Pressione ENTER para fechar' | Out-Null
+    Read-Host (L '  Pressione ENTER para fechar' '  Press ENTER to close') | Out-Null
     exit 1
 }
 
 $ErrorActionPreference = 'Continue'
-$Host.UI.RawUI.WindowTitle = 'Backup do computador'
+$Host.UI.RawUI.WindowTitle = (L 'Backup do computador' 'Computer backup')
 
 function Titulo([string]$t) { Write-Host ''; Write-Host ('=' * 70) -ForegroundColor Cyan; Write-Host "  $t" -ForegroundColor Cyan; Write-Host ('=' * 70) -ForegroundColor Cyan }
 function Ok([string]$t)     { Write-Host "  [OK] $t" -ForegroundColor Green }
@@ -43,10 +48,11 @@ function Aviso([string]$t)  { Write-Host "  [!]  $t" -ForegroundColor Yellow }
 function Erro([string]$t)   { Write-Host "  [X]  $t" -ForegroundColor Red }
 function Msg([string]$t)    { Write-Host "  $t" }
 function Perguntar([string]$t) {
-    do { $r = (Read-Host "  $t (S/N)").Trim().ToUpper() } until ($r -eq 'S' -or $r -eq 'N')
-    return ($r -eq 'S')
+    $sn = L '(S/N)' '(Y/N)'
+    do { $r = (Read-Host "  $t $sn").Trim().ToUpper() } until ((Eh-Sim $r) -or (Eh-Nao $r))
+    return (Eh-Sim $r)
 }
-function Sair { Write-Host ''; try { Stop-Transcript | Out-Null } catch {}; Read-Host '  Pressione ENTER para fechar' | Out-Null; exit }
+function Sair { Write-Host ''; try { Stop-Transcript | Out-Null } catch {}; Read-Host (L '  Pressione ENTER para fechar' '  Press ENTER to close') | Out-Null; exit }
 function GB([double]$bytes) { '{0:N1} GB' -f ($bytes / 1GB) }
 
 # Impede o computador de dormir durante o backup
@@ -84,8 +90,8 @@ function Copiar($t, [string]$raizDestino) {
     & robocopy.exe @a | Out-Host
     if ($t.RaizDeDisco) { & attrib.exe -s -h "$dest" | Out-Null }   # robocopy deixa a pasta oculta ao copiar a raiz de um disco
     if ($LASTEXITCODE -ge 8) {
-        Aviso "Alguns arquivos de '$($t.Origem)' não puderam ser copiados (veja o log)."
-        [void]$script:resumo.Add("[!]  $($t.Origem) (com erros, ver log)")
+        Aviso (L "Alguns arquivos de '$($t.Origem)' não puderam ser copiados (veja o log)." "Some files from '$($t.Origem)' could not be copied (see the log).")
+        [void]$script:resumo.Add("[!]  $($t.Origem) $(L '(com erros, ver log)' '(with errors, see log)')")
     } else {
         [void]$script:resumo.Add("[OK] $($t.Origem)")
     }
@@ -117,10 +123,10 @@ function Detectar-SO([string]$letra) {
 function Tipo-Disco($d) {
     try {
         $bus = (Get-Partition -DriveLetter $d.DeviceID.TrimEnd(':') -ErrorAction Stop | Get-Disk -ErrorAction Stop).BusType
-        if ("$bus" -eq 'USB') { return 'USB/externo' }
-        return "interno ($bus)"
+        if ("$bus" -eq 'USB') { return (L 'USB/externo' 'USB/external') }
+        return "$(L 'interno' 'internal') ($bus)"
     } catch {
-        if ($d.DriveType -eq 2) { return 'removível' }
+        if ($d.DriveType -eq 2) { return (L 'removível' 'removable') }
         return ''
     }
 }
@@ -130,29 +136,29 @@ function Escolher-Destino([string]$padrao, [string[]]$proibidos) {
     $discos = @(Get-CimInstance Win32_LogicalDisk | Where-Object {
         ($_.DriveType -eq 2 -or $_.DriveType -eq 3) -and $_.Size -and $_.DeviceID -ne $discoSistema -and $proibidos -notcontains $_.DeviceID
     } | Sort-Object DeviceID)
-    if (-not $discos.Count) { Erro 'Nenhum outro disco encontrado. Conecte o HD externo e rode de novo.'; Sair }
+    if (-not $discos.Count) { Erro (L 'Nenhum outro disco encontrado. Conecte o HD externo e rode de novo.' 'No other disk found. Connect the external drive and run again.'); Sair }
 
-    Msg 'Em qual disco salvar o backup?'
+    Msg (L 'Em qual disco salvar o backup?' 'Which disk should the backup be saved to?')
     $idxPadrao = -1
     for ($i = 0; $i -lt $discos.Count; $i++) {
         $d = $discos[$i]
         $marca = ''
-        if ($d.DeviceID -eq $padrao) { $idxPadrao = $i; $marca = '  <- onde estão os scripts' }
-        Msg ('   [{0}] {1}  {2,-18} livre: {3,9} de {4,9}  {5,-6} {6}{7}' -f ($i + 1), $d.DeviceID, $d.VolumeName,
-             (GB $d.FreeSpace), (GB $d.Size), $d.FileSystem, (Tipo-Disco $d), $marca)
+        if ($d.DeviceID -eq $padrao) { $idxPadrao = $i; $marca = (L '  <- onde estão os scripts' '  <- where the scripts are') }
+        Msg ('   [{0}] {1}  {2,-18} {3}: {4,9} {5} {6,9}  {7,-6} {8}{9}' -f ($i + 1), $d.DeviceID, $d.VolumeName, (L 'livre' 'free'),
+             (GB $d.FreeSpace), (L 'de' 'of'), (GB $d.Size), $d.FileSystem, (Tipo-Disco $d), $marca)
         $so = Detectar-SO $d.DeviceID
-        if ($so) { Write-Host "         Sistema instalado: $so" -ForegroundColor DarkYellow }
-        else     { Write-Host '         Sem sistema operacional (bom para guardar backups)' -ForegroundColor DarkGray }
+        if ($so) { Write-Host "         $(L 'Sistema instalado' 'Installed system'): $so" -ForegroundColor DarkYellow }
+        else     { Write-Host (L '         Sem sistema operacional (bom para guardar backups)' '         No operating system (good for storing backups)') -ForegroundColor DarkGray }
     }
     $dica = if ($idxPadrao -ge 0) { " (ENTER = $($idxPadrao + 1))" } else { '' }
     do {
-        $r = (Read-Host "  Número do disco$dica").Trim()
+        $r = (Read-Host "  $(L 'Número do disco' 'Disk number')$dica").Trim()
         if (-not $r -and $idxPadrao -ge 0) { $n = $idxPadrao + 1 } else { $n = $r -as [int] }
     } until ($n -ge 1 -and $n -le $discos.Count)
     $escolhido = $discos[$n - 1]
     if ($escolhido.FileSystem -eq 'FAT32') {
-        Aviso 'Este disco é FAT32: arquivos maiores que 4 GB NÃO cabem nele (vídeos grandes, ISOs...).'
-        Aviso 'O ideal é formatar o HD em NTFS ou exFAT antes.'
+        Aviso (L 'Este disco é FAT32: arquivos maiores que 4 GB NÃO cabem nele (vídeos grandes, ISOs...).' 'This disk is FAT32: files larger than 4 GB will NOT fit (large videos, ISOs...).')
+        Aviso (L 'O ideal é formatar o HD em NTFS ou exFAT antes.' 'Ideally, format the drive as NTFS or exFAT first.')
     }
     return $escolhido.DeviceID
 }
@@ -188,22 +194,22 @@ $ignorarRaiz = 'Windows', 'Windows.old', 'Program Files', 'Program Files (x86)',
                'Intel', 'AMD', 'NVIDIA', 'Drivers', 'inetpub', 'ESD', 'XboxGames', 'BACKUP_PC', 'BACKUP_NOTEBOOK', 'SCRIPTS_BACKUP'
 
 # =====================================================================
-Titulo 'BACKUP DO COMPUTADOR'
+Titulo (L 'BACKUP DO COMPUTADOR' 'COMPUTER BACKUP')
 $discoSistema = $env:SystemDrive
-Msg "Computador: $env:COMPUTERNAME"
+Msg "$(L 'Computador' 'Computer'): $env:COMPUTERNAME"
 Write-Host ''
 
 # ---------- 1. Onde salvar ----------
 $discoDestino = Escolher-Destino (Split-Path -Qualifier $PSScriptRoot) @()
-Ok "Backup será salvo no disco $discoDestino"
+Ok (L "Backup será salvo no disco $discoDestino" "Backup will be saved to disk $discoDestino")
 
 # ---------- 2. O que copiar ----------
-Titulo 'O QUE VAI ENTRAR NO BACKUP'
+Titulo (L 'O QUE VAI ENTRAR NO BACKUP' 'WHAT WILL BE BACKED UP')
 
 $perfis = @(Get-CimInstance Win32_UserProfile | Where-Object {
     -not $_.Special -and $_.LocalPath -like "$discoSistema\Users\*" -and (Test-Path -LiteralPath $_.LocalPath)
 })
-Msg 'Usuários encontrados (todos entram no backup):'
+Msg (L 'Usuários encontrados (todos entram no backup):' 'Users found (all of them will be backed up):')
 $perfis | ForEach-Object { Msg "   - $($_.LocalPath)" }
 
 $pastasRaiz = @(Get-ChildItem "$discoSistema\" -Directory -Force -ErrorAction SilentlyContinue | Where-Object {
@@ -212,10 +218,10 @@ $pastasRaiz = @(Get-ChildItem "$discoSistema\" -Directory -Force -ErrorAction Si
 $pastasRaizEscolhidas = @()
 if ($pastasRaiz.Count) {
     Write-Host ''
-    Msg "Pastas extras na raiz do $discoSistema (fora da pasta do usuário):"
+    Msg (L "Pastas extras na raiz do $discoSistema (fora da pasta do usuário):" "Extra folders at the root of $discoSistema (outside the user folder):")
     $pastasRaiz | ForEach-Object { Msg "   - $($_.FullName)" }
-    if (Perguntar 'Copiar TODAS essas pastas?') { $pastasRaizEscolhidas = $pastasRaiz }
-    else { foreach ($p in $pastasRaiz) { if (Perguntar "   Copiar $($p.FullName)?") { $pastasRaizEscolhidas += $p } } }
+    if (Perguntar (L 'Copiar TODAS essas pastas?' 'Copy ALL of these folders?')) { $pastasRaizEscolhidas = $pastasRaiz }
+    else { foreach ($p in $pastasRaiz) { if (Perguntar "   $(L 'Copiar' 'Copy') $($p.FullName)?") { $pastasRaizEscolhidas += $p } } }
 }
 
 $outrosDiscos = @(Get-CimInstance Win32_LogicalDisk -Filter 'DriveType=3' | Where-Object { $_.DeviceID -ne $discoSistema -and $_.DeviceID -ne $discoDestino })
@@ -223,9 +229,9 @@ $discosEscolhidos = @()
 foreach ($d in $outrosDiscos) {
     Write-Host ''
     $so = Detectar-SO $d.DeviceID
-    if ($so) { Aviso "O disco $($d.DeviceID) tem outro sistema instalado ($so). Só os arquivos dele podem ser copiados, não o sistema." }
-    else     { Msg "O disco $($d.DeviceID) não tem nenhum sistema operacional: só arquivos." }
-    if (Perguntar ('Copiar o disco {0} ({1}) inteiro? Usado: {2}' -f $d.DeviceID, $d.VolumeName, (GB ($d.Size - $d.FreeSpace)))) { $discosEscolhidos += $d.DeviceID }
+    if ($so) { Aviso (L "O disco $($d.DeviceID) tem outro sistema instalado ($so). Só os arquivos dele podem ser copiados, não o sistema." "Disk $($d.DeviceID) has another system installed ($so). Only its files can be copied, not the system.") }
+    else     { Msg (L "O disco $($d.DeviceID) não tem nenhum sistema operacional: só arquivos." "Disk $($d.DeviceID) has no operating system: files only.") }
+    if (Perguntar ((L 'Copiar o disco {0} ({1}) inteiro? Usado: {2}' 'Copy the whole disk {0} ({1})? Used: {2}') -f $d.DeviceID, $d.VolumeName, (GB ($d.Size - $d.FreeSpace)))) { $discosEscolhidos += $d.DeviceID }
 }
 
 # ---------- 3. Montar a lista de tarefas ----------
@@ -236,24 +242,24 @@ function Nova-Tarefa([string]$grupo, [string]$origem, [string]$rel, [string[]]$x
 foreach ($p in $perfis) {
     $lp = $p.LocalPath; $nome = Split-Path $lp -Leaf
     # Pasta do usuário inteira (Desktop, Documentos, Downloads, Imagens, Vídeos, Músicas, etc.), menos AppData
-    Nova-Tarefa "Usuário $nome - arquivos" $lp "02_Usuarios\$nome\Perfil" @("$lp\AppData") @('NTUSER.DAT*', 'ntuser.*', 'UsrClass.dat*')
+    Nova-Tarefa (L "Usuário $nome - arquivos" "User $nome - files") $lp "02_Usuarios\$nome\Perfil" @("$lp\AppData") @('NTUSER.DAT*', 'ntuser.*', 'UsrClass.dat*')
     # Configurações dos programas
-    Nova-Tarefa "Usuário $nome - configurações" "$lp\AppData\Roaming" "02_Usuarios\$nome\AppData\Roaming" $pastasCache
+    Nova-Tarefa (L "Usuário $nome - configurações" "User $nome - settings") "$lp\AppData\Roaming" "02_Usuarios\$nome\AppData\Roaming" $pastasCache
     foreach ($rel in $locaisImportantes) {
-        Nova-Tarefa "Usuário $nome - configurações" "$lp\AppData\Local\$rel" "02_Usuarios\$nome\AppData\Local\$rel" $pastasCache @('*.ost')
+        Nova-Tarefa (L "Usuário $nome - configurações" "User $nome - settings") "$lp\AppData\Local\$rel" "02_Usuarios\$nome\AppData\Local\$rel" $pastasCache @('*.ost')
     }
 }
 $letraSis = $discoSistema.TrimEnd(':')
-foreach ($p in $pastasRaizEscolhidas) { Nova-Tarefa "Pasta $($p.FullName)" $p.FullName "04_OutrasPastas\$letraSis\$($p.Name)" }
+foreach ($p in $pastasRaizEscolhidas) { Nova-Tarefa "$(L 'Pasta' 'Folder') $($p.FullName)" $p.FullName "04_OutrasPastas\$letraSis\$($p.Name)" }
 foreach ($d in $discosEscolhidos) {
-    Nova-Tarefa "Disco $d inteiro" "$d\" "04_OutrasPastas\$($d.TrimEnd(':'))" @('$RECYCLE.BIN', 'System Volume Information') -raizDeDisco
+    Nova-Tarefa (L "Disco $d inteiro" "Whole disk $d") "$d\" "04_OutrasPastas\$($d.TrimEnd(':'))" @('$RECYCLE.BIN', 'System Volume Information') -raizDeDisco
 }
 
 # ---------- 4. Verificar se cabe ----------
-Titulo 'CALCULANDO O TAMANHO DO BACKUP'
-Msg 'Isso não copia nada, só mede. Pode levar alguns minutos...'
+Titulo (L 'CALCULANDO O TAMANHO DO BACKUP' 'CALCULATING THE BACKUP SIZE')
+Msg (L 'Isso não copia nada, só mede. Pode levar alguns minutos...' 'Nothing is copied yet, this only measures. It may take a few minutes...')
 foreach ($t in $tarefas) {
-    Write-Host "  medindo $($t.Origem)" -ForegroundColor DarkGray
+    Write-Host "  $(L 'medindo' 'measuring') $($t.Origem)" -ForegroundColor DarkGray
     $t.Bytes = Medir $t
 }
 
@@ -269,25 +275,26 @@ while ($true) {
     Write-Host ''
     for ($i = 0; $i -lt $grupos.Count; $i++) { Msg ('[{0}] {1,10}   {2}' -f ($i + 1), (GB $grupos[$i].Bytes), $grupos[$i].Nome) }
     Msg ('-' * 60)
-    Msg ('    {0,10}   TOTAL do backup' -f (GB $total))
-    Msg ('    {0,10}   necessário com margem de segurança' -f (GB $necessario))
-    Msg ('    {0,10}   livre no disco {1}' -f (GB $livre), $discoDestino)
+    Msg ('    {0,10}   {1}' -f (GB $total), (L 'TOTAL do backup' 'backup TOTAL'))
+    Msg ('    {0,10}   {1}' -f (GB $necessario), (L 'necessário com margem de segurança' 'needed with safety margin'))
+    Msg ('    {0,10}   {1} {2}' -f (GB $livre), (L 'livre no disco' 'free on disk'), $discoDestino)
     Write-Host ''
 
     if ($livre -ge $necessario) {
-        Ok ('Cabe! Vão sobrar {0} no disco {1}.' -f (GB ($livre - $necessario)), $discoDestino)
+        Ok ((L 'Cabe! Vão sobrar {0} no disco {1}.' 'It fits! {0} will be left on disk {1}.') -f (GB ($livre - $necessario)), $discoDestino)
         break
     }
+    if ($forcar) { break }
 
-    Erro ('NÃO CABE: faltam {0} no disco {1}.' -f (GB ($necessario - $livre)), $discoDestino)
-    Msg '[1] Escolher outro disco'
-    Msg '[2] Tirar itens do backup'
-    Msg '[3] Continuar mesmo assim (vai parar quando o disco encher)'
-    Msg '[0] Cancelar'
-    switch ((Read-Host '  Opção').Trim()) {
+    Erro ((L 'NÃO CABE: faltam {0} no disco {1}.' 'DOES NOT FIT: {0} missing on disk {1}.') -f (GB ($necessario - $livre)), $discoDestino)
+    Msg (L '[1] Escolher outro disco' '[1] Choose another disk')
+    Msg (L '[2] Tirar itens do backup' '[2] Remove items from the backup')
+    Msg (L '[3] Continuar mesmo assim (vai parar quando o disco encher)' '[3] Continue anyway (it will stop when the disk is full)')
+    Msg (L '[0] Cancelar' '[0] Cancel')
+    switch ((Read-Host "  $(L 'Opção' 'Option')").Trim()) {
         '1' { $discoDestino = Escolher-Destino '' ($discosEscolhidos) }
         '2' {
-            $r = Read-Host '  Números dos itens para tirar, separados por vírgula (ex: 3,4)'
+            $r = Read-Host (L '  Números dos itens para tirar, separados por vírgula (ex: 3,4)' '  Numbers of the items to remove, separated by commas (e.g. 3,4)')
             $tirar = @($r -split '[,; ]+' | Where-Object { ($_ -as [int]) -ge 1 -and ($_ -as [int]) -le $grupos.Count } | ForEach-Object { $grupos[[int]$_ - 1].Nome })
             foreach ($t in @($tarefas | Where-Object { $tirar -contains $_.Grupo })) { $tarefas.Remove($t) }
         }
@@ -298,9 +305,9 @@ while ($true) {
 }
 
 Write-Host ''
-Aviso 'FECHE todos os programas (navegadores, Outlook, WhatsApp, jogos...) antes de continuar.'
-Aviso 'Se for notebook, deixe ligado na tomada. Pode demorar bastante.'
-if (-not (Perguntar 'Começar o backup agora?')) { Sair }
+Aviso (L 'FECHE todos os programas (navegadores, Outlook, WhatsApp, jogos...) antes de continuar.' 'CLOSE all programs (browsers, Outlook, WhatsApp, games...) before continuing.')
+Aviso (L 'Se for notebook, deixe ligado na tomada. Pode demorar bastante.' 'If this is a laptop, keep it plugged in. This may take a while.')
+if (-not (Perguntar (L 'Começar o backup agora?' 'Start the backup now?'))) { Sair }
 
 # ---------- Pastas de destino ----------
 $inicio = Get-Date
@@ -310,55 +317,55 @@ New-Item -ItemType Directory -Force $dInfo, $dProg, $dWifi | Out-Null
 $script:arquivoLog = "$dInfo\log-copia.txt"
 
 # ---------- 1. Informações do sistema ----------
-Titulo '1/5  Informações do sistema'
+Titulo (L '1/5  Informações do sistema' '1/5  System information')
 $os = Get-CimInstance Win32_OperatingSystem
 $cs = Get-CimInstance Win32_ComputerSystem
 $bios = Get-CimInstance Win32_BIOS
 $chave = (Get-CimInstance SoftwareLicensingService -ErrorAction SilentlyContinue).OA3xOriginalProductKey
-@"
-Data do backup  : $(Get-Date)
-Computador      : $env:COMPUTERNAME
-Usuário         : $env:USERNAME
-Fabricante      : $($cs.Manufacturer) $($cs.Model)
-Nº de série     : $($bios.SerialNumber)
-Windows         : $($os.Caption) $($os.Version)
-Chave Windows   : $(if ($chave) { $chave } else { '(não encontrada na BIOS)' })
-Memória         : $([math]::Round($cs.TotalPhysicalMemory / 1GB)) GB
-"@ | Out-File "$dInfo\sistema.txt" -Encoding utf8
+@(
+    "$(L 'Data do backup ' 'Backup date    ') : $(Get-Date)"
+    "$(L 'Computador     ' 'Computer       ') : $env:COMPUTERNAME"
+    "$(L 'Usuário        ' 'User           ') : $env:USERNAME"
+    "$(L 'Fabricante     ' 'Manufacturer   ') : $($cs.Manufacturer) $($cs.Model)"
+    "$(L 'Nº de série    ' 'Serial number  ') : $($bios.SerialNumber)"
+    "Windows         : $($os.Caption) $($os.Version)"
+    "$(L 'Chave Windows  ' 'Windows key    ') : $(if ($chave) { $chave } else { L '(não encontrada na BIOS)' '(not found in BIOS)' })"
+    "$(L 'Memória        ' 'Memory         ') : $([math]::Round($cs.TotalPhysicalMemory / 1GB)) GB"
+) | Out-File "$dInfo\sistema.txt" -Encoding utf8
 # Marca de origem: o restaurar usa para saber se o backup veio do Windows ou do Linux
 @('windows', $os.Caption, $os.Version) | Out-File "$dInfo\origem.txt" -Encoding utf8
 Get-Printer -ErrorAction SilentlyContinue | Select-Object Name, DriverName, PortName | Format-Table -AutoSize | Out-String -Width 300 | Out-File "$dInfo\impressoras.txt" -Encoding utf8
 & reg.exe export 'HKCU\Environment' "$dInfo\variaveis-ambiente-usuario.reg" /y | Out-Null
-Ok 'Informações salvas.'
+Ok (L 'Informações salvas.' 'Information saved.')
 
 # ---------- 2. Lista de programas ----------
-Titulo '2/5  Lista de programas instalados'
+Titulo (L '2/5  Lista de programas instalados' '2/5  List of installed programs')
 $progs = Get-ProgramasInstalados
 $progs | Export-Csv "$dProg\programas-instalados.csv" -NoTypeInformation -Encoding UTF8
 $progs | Format-Table -AutoSize | Out-String -Width 300 | Out-File "$dProg\programas-instalados.txt" -Encoding utf8
 Get-AppxPackage -ErrorAction SilentlyContinue | Where-Object { -not $_.IsFramework -and $_.SignatureKind -ne 'System' } |
     Select-Object Name, Version | Sort-Object Name | Format-Table -AutoSize | Out-String -Width 300 | Out-File "$dProg\apps-microsoft-store.txt" -Encoding utf8
-Ok "$($progs.Count) programas listados."
+Ok (L "$($progs.Count) programas listados." "$($progs.Count) programs listed.")
 
 if (Get-Command winget.exe -ErrorAction SilentlyContinue) {
-    Msg 'Gerando lista para reinstalação automática (winget)...'
+    Msg (L 'Gerando lista para reinstalação automática (winget)...' 'Creating the list for automatic reinstallation (winget)...')
     & winget.exe export -o "$dProg\programas-winget.json" --accept-source-agreements | Out-Host
     & winget.exe list --accept-source-agreements | Out-File "$dProg\winget-list.txt" -Encoding utf8
-    if (Test-Path "$dProg\programas-winget.json") { Ok 'Lista do winget criada.'; [void]$script:resumo.Add('[OK] Lista de programas (winget)') }
-    else { Aviso 'Não foi possível gerar a lista do winget.' }
+    if (Test-Path "$dProg\programas-winget.json") { Ok (L 'Lista do winget criada.' 'winget list created.'); [void]$script:resumo.Add("[OK] $(L 'Lista de programas (winget)' 'Program list (winget)')") }
+    else { Aviso (L 'Não foi possível gerar a lista do winget.' 'Could not create the winget list.') }
 } else {
-    Aviso 'winget não encontrado: só a lista em texto foi salva (reinstalação será manual).'
+    Aviso (L 'winget não encontrado: só a lista em texto foi salva (reinstalação será manual).' 'winget not found: only the text list was saved (reinstallation will be manual).')
 }
 
 # ---------- 3. Wi-Fi ----------
-Titulo '3/5  Redes Wi-Fi e senhas'
+Titulo (L '3/5  Redes Wi-Fi e senhas' '3/5  Wi-Fi networks and passwords')
 & netsh.exe wlan export profile key=clear folder="$dWifi" | Out-Host
 $nWifi = @(Get-ChildItem "$dWifi\*.xml" -ErrorAction SilentlyContinue).Count
-Ok "$nWifi redes Wi-Fi salvas."
-[void]$script:resumo.Add("[OK] $nWifi redes Wi-Fi")
+Ok (L "$nWifi redes Wi-Fi salvas." "$nWifi Wi-Fi networks saved.")
+[void]$script:resumo.Add("[OK] $nWifi $(L 'redes Wi-Fi' 'Wi-Fi networks')")
 
 # ---------- 4. Arquivos ----------
-Titulo ('4/5  Copiando arquivos ({0})' -f (GB $total))
+Titulo ('{0} ({1})' -f (L '4/5  Copiando arquivos' '4/5  Copying files'), (GB $total))
 $n = 0
 foreach ($t in $tarefas) {
     $n++
@@ -368,18 +375,18 @@ foreach ($t in $tarefas) {
 }
 
 # ---------- 5. Fim ----------
-Titulo '5/5  Finalizando'
+Titulo (L '5/5  Finalizando' '5/5  Finishing')
 $duracao = (Get-Date) - $inicio
 $tamanho = (Get-ChildItem -LiteralPath $destino -Recurse -File -Force -ErrorAction SilentlyContinue | Measure-Object Length -Sum).Sum
-$texto = @("BACKUP CONCLUÍDO - $(Get-Date)", ('Duração: {0:hh\:mm\:ss}' -f $duracao), "Tamanho: $(GB $tamanho)", '') + $script:resumo
+$texto = @("$(L 'BACKUP CONCLUÍDO' 'BACKUP COMPLETE') - $(Get-Date)", ('{0}: {1:hh\:mm\:ss}' -f (L 'Duração' 'Duration'), $duracao), "$(L 'Tamanho' 'Size'): $(GB $tamanho)", '') + $script:resumo
 $texto | Out-File "$destino\RESUMO.txt" -Encoding utf8
 
-Titulo 'BACKUP CONCLUÍDO'
+Titulo (L 'BACKUP CONCLUÍDO' 'BACKUP COMPLETE')
 $script:resumo | ForEach-Object { if ($_.StartsWith('[!')) { Aviso $_.Substring(5) } else { Msg $_ } }
 Write-Host ''
-Ok ('Tempo: {0:hh\:mm\:ss}   Tamanho: {1}' -f $duracao, (GB $tamanho))
-Ok "Salvo em: $destino"
-Msg 'Para passar para o outro computador: ligue o disco nele e rode "2-RESTAURAR-BACKUP.bat".'
+Ok ('{0}: {1:hh\:mm\:ss}   {2}: {3}' -f (L 'Tempo' 'Time'), $duracao, (L 'Tamanho' 'Size'), (GB $tamanho))
+Ok "$(L 'Salvo em' 'Saved to'): $destino"
+Msg (L 'Para passar para o outro computador: ligue o disco nele e rode "2-RESTAURAR-BACKUP.bat".' 'To move it to the other computer: connect the disk there and run "2-RESTAURAR-BACKUP.bat".')
 [Win32.Energia]::SetThreadExecutionState([uint32]'0x80000000') | Out-Null
 Start-Process explorer.exe $destino
 Sair
