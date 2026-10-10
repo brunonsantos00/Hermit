@@ -270,6 +270,63 @@ function Restaurar-OutrasPastas {
     Ok (L 'Outras pastas restauradas.' 'Other folders restored.')
 }
 
+# ---------- Backup 2.0: pastas dos programas ----------
+$script:temProgramas = Test-Path -LiteralPath "$bk\05_Programas"
+
+# Copia a pasta de um programa. Se ele já existe aqui, os arquivos são SUBSTITUÍDOS pelos do backup.
+function Copiar-Programa([string]$origem, [string]$destino) {
+    $nome = Split-Path $destino -Leaf
+    if (Test-Path -LiteralPath $destino) {
+        # Arquivos em uso não podem ser substituídos: fecha o programa antes
+        $abertos = @(Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.Path -and $_.Path.StartsWith($destino.TrimEnd('\') + '\', [StringComparison]::OrdinalIgnoreCase) })
+        if ($abertos.Count) {
+            Aviso ((L '{0} está aberto ({1}).' '{0} is open ({1}).') -f $nome, (($abertos | Select-Object -ExpandProperty Name -Unique) -join ', '))
+            if (Perguntar (L 'Fechar para poder substituir?' 'Close it so it can be replaced?')) { $abertos | Stop-Process -Force -ErrorAction SilentlyContinue; Start-Sleep 2 }
+            else { Aviso ((L '{0} pulado.' '{0} skipped.') -f $nome); $script:pulados++; return }
+        }
+        Write-Host "  [$(L 'substituindo' 'replacing')] $nome" -ForegroundColor Yellow
+        $script:substituidos++
+    } else {
+        Write-Host "  [$(L 'novo' 'new')] $nome" -ForegroundColor Green
+        $script:novos++
+    }
+    # /IS /IT: regrava até os arquivos que parecem iguais, para ficar exatamente como no backup
+    $a = @($origem, $destino, '/E', '/IS', '/IT', '/XJ', '/COPY:DAT', '/DCOPY:T', '/R:1', '/W:1', '/MT:16', '/B', '/NP', '/NFL', '/NDL', '/NJH', '/NJS', "/UNILOG+:$script:arquivoLog")
+    & robocopy.exe @a | Out-Null
+    if ($LASTEXITCODE -ge 8) { Aviso ((L 'Alguns arquivos de {0} não foram copiados (log: {1}).' 'Some files of {0} were not copied (log: {1}).') -f $nome, $script:arquivoLog) }
+}
+
+function Restaurar-ProgramasCopiados {
+    Titulo (L 'Programas copiados (backup 2.0)' 'Copied programs (backup 2.0)')
+    $base = "$bk\05_Programas"
+    if (-not $script:temProgramas) { Msg (L 'Este backup não tem pastas de programas (foi feito com o backup normal).' 'This backup has no program folders (it was made with the normal backup).'); return }
+    Aviso (L 'As pastas dos programas serão colocadas de volta. Se um programa já existir neste computador, os arquivos dele serão SUBSTITUÍDOS pelos do backup.' 'Program folders will be put back. If a program already exists on this computer, its files will be REPLACED by the ones from the backup.')
+    Aviso (L 'Programas que dependem de serviços, drivers ou ativação (Office, Adobe, antivírus...) podem não abrir: nesse caso use a opção [3] Reinstalar programas.' 'Programs that depend on services, drivers or activation (Office, Adobe, antivirus...) may not open: in that case use option [3] Reinstall programs.')
+    if (-not (Perguntar (L 'Continuar?' 'Continue?'))) { return }
+
+    $script:novos = 0; $script:substituidos = 0; $script:pulados = 0
+    foreach ($par in @(@('ProgramFiles', $env:ProgramFiles), @('ProgramFilesX86', ${env:ProgramFiles(x86)}), @('ProgramData', $env:ProgramData))) {
+        $orig = Join-Path $base $par[0]
+        if (-not $par[1] -or -not (Test-Path -LiteralPath $orig)) { continue }
+        foreach ($prog in @(Get-ChildItem -LiteralPath $orig -Directory)) { Copiar-Programa $prog.FullName (Join-Path $par[1] $prog.Name) }
+    }
+
+    # Programas instalados só para o usuário (AppData\Local\Programs)
+    $porUsuario = @(Get-ChildItem -LiteralPath $base -Directory -Filter 'Usuario_*' -ErrorAction SilentlyContinue)
+    if ($porUsuario.Count -and (Selecionar-Usuario)) {
+        $meu = $porUsuario | Where-Object { $_.Name -eq "Usuario_$(Split-Path $script:usuarioBk -Leaf)" } | Select-Object -First 1
+        if (-not $meu -and $porUsuario.Count -eq 1) { $meu = $porUsuario[0] }
+        if ($meu) { foreach ($prog in @(Get-ChildItem -LiteralPath $meu.FullName -Directory)) { Copiar-Programa $prog.FullName (Join-Path $script:alvo "AppData\Local\Programs\$($prog.Name)") } }
+    }
+
+    # Atalhos do Menu Iniciar e da Área de Trabalho pública
+    Copiar "$base\MenuIniciar" "$env:ProgramData\Microsoft\Windows\Start Menu\Programs"
+    Copiar "$base\AreaDeTrabalhoPublica" "$env:PUBLIC\Desktop"
+
+    Ok ((L 'Programas: {0} novos, {1} substituídos, {2} pulados.' 'Programs: {0} new, {1} replaced, {2} skipped.') -f $script:novos, $script:substituidos, $script:pulados)
+    Msg (L 'Se algum programa não abrir, reinstale ele pela opção [3] (winget).' 'If a program does not open, reinstall it with option [3] (winget).')
+}
+
 # ---------- Menu ----------
 while ($true) {
     Titulo (L 'O QUE VOCÊ QUER FAZER?' 'WHAT DO YOU WANT TO DO?')
@@ -279,15 +336,20 @@ while ($true) {
     Msg (L '[4] Só arquivos do usuário (Área de Trabalho, Documentos, Fotos...)' '[4] User files only (Desktop, Documents, Pictures...)')
     Msg (L '[5] Só outras pastas / discos' '[5] Other folders / disks only')
     Msg (L '[6] Só configurações dos programas (AppData)' '[6] Program settings only (AppData)')
+    if ($script:temProgramas) { Msg (L '[7] Só os programas copiados (backup 2.0, substitui os que já existem)' '[7] Copied programs only (backup 2.0, replaces existing ones)') }
     Msg (L '[0] Sair' '[0] Exit')
     switch ((Read-Host "  $(L 'Opção' 'Option')").Trim()) {
-        '1' { Restaurar-WiFi; Restaurar-Programas; Restaurar-Arquivos; Restaurar-OutrasPastas; Restaurar-AppData
+        '1' { Restaurar-WiFi
+              # Backup 2.0: coloca as pastas dos programas de volta em vez de reinstalar
+              if ($script:temProgramas) { Restaurar-ProgramasCopiados } else { Restaurar-Programas }
+              Restaurar-Arquivos; Restaurar-OutrasPastas; Restaurar-AppData
               Titulo (L 'TUDO PRONTO!' 'ALL DONE!'); Msg "Log: $script:arquivoLog"; Msg (L 'Reinicie o computador para finalizar.' 'Restart the computer to finish.') }
         '2' { Restaurar-WiFi }
         '3' { Restaurar-Programas }
         '4' { Restaurar-Arquivos }
         '5' { Restaurar-OutrasPastas }
         '6' { Restaurar-AppData }
+        '7' { Restaurar-ProgramasCopiados }
         '0' { [Win32.Energia]::SetThreadExecutionState([uint32]'0x80000000') | Out-Null; exit }
     }
 }
