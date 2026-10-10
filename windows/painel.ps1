@@ -7,6 +7,12 @@
 
 Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
 
+# Identidade própria na barra de tarefas (senão o Windows mostra o ícone do PowerShell)
+try {
+    Add-Type -Namespace Win32 -Name Shell -MemberDefinition '[DllImport("shell32.dll")] public static extern int SetCurrentProcessExplicitAppUserModelID([MarshalAs(UnmanagedType.LPWStr)] string id);'
+    [void][Win32.Shell]::SetCurrentProcessExplicitAppUserModelID('BackupMigracao.Painel')
+} catch {}
+
 $versao = '2.0'
 
 $xaml = @'
@@ -285,6 +291,12 @@ try {
     exit 1
 }
 function Ctrl([string]$nome) { $janela.FindName($nome) }
+
+# Ícone da janela (aparece na barra de tarefas)
+$arquivoIcone = Join-Path (Split-Path $PSScriptRoot -Parent) 'assets\icone.ico'
+if (Test-Path -LiteralPath $arquivoIcone) {
+    try { $janela.Icon = [Windows.Media.Imaging.BitmapFrame]::Create((New-Object Uri $arquivoIcone)) } catch {}
+}
 $conversor = New-Object Windows.Media.BrushConverter
 function Cor([string]$hex) { $conversor.ConvertFromString($hex) }
 
