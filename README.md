@@ -17,9 +17,20 @@ Não precisa instalar nada: os scripts usam só ferramentas que já vêm no sist
 - **Migração Windows → Linux**: o restaurar do Linux aceita backups feitos no Windows (arquivos pessoais e redes Wi-Fi).
 - **Painel gráfico no Windows**: janela com botões, lista de dispositivos com o sistema de cada um, espaço livre e backups encontrados.
 
+## Início rápido
+
+Os iniciadores ficam na raiz do projeto e usam o mesmo ícone:
+
+| Sistema | Abrir com | O que faz |
+|---|---|---|
+| Windows | **`BackupMigracao.exe`** (dois cliques) | Abre o painel gráfico |
+| Linux | **`BackupMigracao.sh`** (dois cliques ou `bash BackupMigracao.sh`) | Abre o menu com backup e restauração. A opção 3 cria um atalho com ícone no menu de aplicativos |
+
+> O `.exe` não é assinado digitalmente. Na primeira vez o Windows pode mostrar o aviso "O Windows protegeu o computador": clique em **Mais informações → Executar assim mesmo**. O código-fonte está em [`launcher/`](launcher/) e dá pra compilar de novo com `launcher/compilar.ps1`.
+
 ## Windows
 
-O jeito mais fácil: dê dois cliques em **`windows/0-ABRIR-PAINEL.bat`**.
+O jeito mais fácil: dê dois cliques em **`BackupMigracao.exe`**, ou em **`windows/0-ABRIR-PAINEL.bat`**.
 
 O painel mostra os dispositivos conectados e tem botões para **Fazer backup** e **Restaurar backup**. Ele percebe sozinho quando um HD é conectado. Também dá pra rodar cada etapa direto pelos `.bat`:
 
@@ -75,6 +86,14 @@ BACKUP_PC/<PC>_<data>/
 ## Arquivos
 
 ```
+BackupMigracao.exe          iniciador do Windows (abre o painel)
+BackupMigracao.sh           iniciador do Linux (menu + atalho com ícone)
+assets/
+├── icone.ico / icone.png   ícone do projeto
+└── gerar-icone.ps1         desenha o ícone
+launcher/
+├── BackupMigracao.cs       código-fonte do .exe
+└── compilar.ps1            compila o .exe com o ícone
 windows/
 ├── 0-ABRIR-PAINEL.bat      abre o painel gráfico
 ├── 1-FAZER-BACKUP.bat      atalho para backup.ps1
