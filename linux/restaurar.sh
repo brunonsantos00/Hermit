@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # =====================================================================
 #  RESTAURAR O BACKUP (LINUX) - Ubuntu, Debian e Fedora
+#  RESTORE THE BACKUP (LINUX) - Ubuntu, Debian and Fedora
 #  ----------------------------------------------------
-#  Como usar: ligue o disco do backup, abra um terminal nesta pasta e rode
-#      bash restaurar.sh
+#  Uso / Usage:   bash restaurar.sh [--idioma pt|en]
 #  Funciona com backups feitos no Linux e também com backups feitos no Windows
 #  (nesse caso restaura os arquivos pessoais e as redes Wi-Fi).
 # =====================================================================
@@ -11,15 +11,29 @@
 set -o pipefail
 
 SCRIPT="$(readlink -f "$0")"
-if [ "$EUID" -ne 0 ]; then
-    echo "Este script precisa de permissão de administrador (digite sua senha)."
-    exec sudo bash "$SCRIPT" "$@"
-fi
 SCRIPT_DIR="$(dirname "$SCRIPT")"
+
+# ---------- Idioma ----------
+PEDIDO=""
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --idioma|--lang) PEDIDO="${2:-}"; shift 2 ;;
+        --idioma=*|--lang=*) PEDIDO="${1#*=}"; shift ;;
+        *) shift ;;
+    esac
+done
+# shellcheck source=idioma.sh
+source "$SCRIPT_DIR/idioma.sh"
+IDIOMA="$(detectar_idioma "$PEDIDO")"
+
+if [ "$EUID" -ne 0 ]; then
+    L "Este script precisa de permissão de administrador (digite sua senha)." "This script needs administrator permission (type your password)."; echo
+    exec sudo bash "$SCRIPT" --idioma "$IDIOMA"
+fi
 
 if [ -z "${BACKUP_INIBIDO:-}" ] && command -v systemd-inhibit >/dev/null 2>&1 && systemd-inhibit --list >/dev/null 2>&1; then
     export BACKUP_INIBIDO=1
-    exec systemd-inhibit --what=sleep:idle:handle-lid-switch --who="Backup" --why="Restauração em andamento" bash "$SCRIPT" "$@"
+    exec systemd-inhibit --what=sleep:idle:handle-lid-switch --who="Backup" --why="Restore" bash "$SCRIPT" --idioma "$IDIOMA"
 fi
 
 TRANSCRIPT="$SCRIPT_DIR/ultima-execucao-restaurar.txt"
@@ -32,17 +46,20 @@ ok()        { echo "${VERDE}  [OK] $*${N}"; }
 aviso()     { echo "${AMARELO}  [!]  $*${N}"; }
 erro()      { echo "${VERMELHO}  [X]  $*${N}"; }
 msg()       { echo "  $*"; }
-perguntar() { local r; while true; do entrada "  $1 (S/N) " r; case "${r^^}" in S) return 0 ;; N) return 1 ;; esac; done; }
-sair()      { echo; read -r -p "  Pressione ENTER para fechar " _; exit "${1:-0}"; }
 # Lê uma resposta; se a entrada acabar (sem teclado), encerra em vez de perguntar para sempre
-entrada()   { read -r -p "$@" || { echo; erro "Sem resposta (a entrada foi encerrada). Saindo."; exit 1; }; }
+entrada()   { read -r -p "$@" || { echo; erro "$(L 'Sem resposta (a entrada foi encerrada). Saindo.' 'No answer (input was closed). Exiting.')"; exit 1; }; }
+perguntar() {
+    local r sn; sn="$(L '(S/N)' '(Y/N)')"
+    while true; do entrada "  $1 $sn " r; case "${r^^}" in S|Y) return 0 ;; N) return 1 ;; esac; done
+}
+sair()      { echo; read -r -p "  $(L 'Pressione ENTER para fechar' 'Press ENTER to close') " _; exit "${1:-0}"; }
 gb()        { awk -v b="${1:-0}" 'BEGIN { printf "%.1f GB", b / 1073741824 }'; }
 escolher()  {   # $1 = pergunta; demais = opções. Define ESCOLHA (índice a partir de 0)
     local p="$1"; shift; local i n
     msg "$p"
     i=1; for o in "$@"; do msg "   [$i] $o"; i=$((i + 1)); done
     while true; do
-        entrada "  Número: " n
+        entrada "  $(L 'Número' 'Number'): " n
         [[ "$n" =~ ^[0-9]+$ ]] && [ "$n" -ge 1 ] && [ "$n" -le "$#" ] && break
     done
     ESCOLHA=$((n - 1))
@@ -78,11 +95,11 @@ pasta_xdg() {
 }
 
 # =====================================================================
-titulo "RESTAURAR BACKUP (LINUX)"
-msg "Este computador: $(hostname)   •   $DISTRO_NOME"
-if [ "$FAMILIA" = outro ]; then erro "Distribuição não suportada. Este script funciona no Ubuntu, Debian e Fedora."; sair 1; fi
+titulo "$(L 'RESTAURAR BACKUP (LINUX)' 'RESTORE BACKUP (LINUX)')"
+msg "$(L 'Este computador' 'This computer'): $(hostname)   •   $DISTRO_NOME"
+if [ "$FAMILIA" = outro ]; then erro "$(L 'Distribuição não suportada. Este script funciona no Ubuntu, Debian e Fedora.' 'Unsupported distribution. This script works on Ubuntu, Debian and Fedora.')"; sair 1; fi
 if ! command -v rsync >/dev/null 2>&1; then
-    msg "Instalando o rsync..."; [ "$FAMILIA" = apt ] && apt-get update -qq; instalar rsync >/dev/null
+    msg "$(L 'Instalando o rsync...' 'Installing rsync...')"; [ "$FAMILIA" = apt ] && apt-get update -qq; instalar rsync >/dev/null
 fi
 
 # ---------- Procurar backups em todos os discos montados ----------
@@ -96,10 +113,10 @@ mapfile -t BACKUPS < <(for m in "${MONTAGENS[@]}"; do
                            done
                        done | sort -rn -u | cut -f2-)
 if [ "${#BACKUPS[@]}" -eq 0 ]; then
-    erro "Nenhum backup encontrado. Conecte o disco com a pasta BACKUP_PC, abra ele no gerenciador de arquivos e rode de novo."
+    erro "$(L 'Nenhum backup encontrado. Conecte o disco com a pasta BACKUP_PC, abra ele no gerenciador de arquivos e rode de novo.' 'No backup found. Connect the disk with the BACKUP_PC folder, open it in the file manager and run again.')"
     sair 1
 fi
-if [ "${#BACKUPS[@]}" -eq 1 ]; then BK="${BACKUPS[0]}"; else escolher "Qual backup restaurar?" "${BACKUPS[@]}"; BK="${BACKUPS[$ESCOLHA]}"; fi
+if [ "${#BACKUPS[@]}" -eq 1 ]; then BK="${BACKUPS[0]}"; else escolher "$(L 'Qual backup restaurar?' 'Which backup do you want to restore?')" "${BACKUPS[@]}"; BK="${BACKUPS[$ESCOLHA]}"; fi
 ok "Backup: $BK"
 [ -f "$BK/00_Info/sistema.txt" ] && head -6 "$BK/00_Info/sistema.txt" | tr -d '\r' | sed 's/^\xEF\xBB\xBF//; s/^/     /'
 
@@ -110,45 +127,50 @@ if [ -f "$BK/00_Info/origem.txt" ] && [ "$(primeira_linha "$BK/00_Info/origem.tx
 fi
 if [ "$ORIGEM" = windows ]; then
     echo
-    aviso "Este backup foi feito no WINDOWS."
-    msg "Dá para restaurar os arquivos pessoais (Área de Trabalho, Documentos, Fotos...) e as redes Wi-Fi."
-    msg "Os programas do Windows não funcionam no Linux: a lista deles vai para a sua Área de Trabalho."
+    aviso "$(L 'Este backup foi feito no WINDOWS.' 'This backup was made on WINDOWS.')"
+    msg "$(L 'Dá para restaurar os arquivos pessoais (Área de Trabalho, Documentos, Fotos...) e as redes Wi-Fi.' 'Personal files (Desktop, Documents, Pictures...) and Wi-Fi networks can be restored.')"
+    msg "$(L 'Os programas do Windows não funcionam no Linux: a lista deles vai para a sua Área de Trabalho.' 'Windows programs do not work on Linux: their list goes to your Desktop.')"
 fi
 
 # ---------- Verificar se cabe ----------
 echo
-msg "Calculando o tamanho do backup..."
+msg "$(L 'Calculando o tamanho do backup...' 'Calculating the backup size...')"
 TAM_BK="$(du -sb "$BK" 2>/dev/null | cut -f1)"
 LIVRE="$(df -B1 --output=avail /home 2>/dev/null | tail -1 | tr -d ' ')"
 NECESSARIO=$(( TAM_BK + TAM_BK / 20 + 5368709120 ))     # margem + espaço para os programas
-msg "Tamanho do backup : $(gb "$TAM_BK")"
-msg "Livre em /home    : $(gb "$LIVRE")"
-if [ "$LIVRE" -ge "$NECESSARIO" ]; then ok "Tem espaço suficiente."
+msg "$(L 'Tamanho do backup' 'Backup size      ') : $(gb "$TAM_BK")"
+msg "$(L 'Livre em /home   ' 'Free on /home    ') : $(gb "$LIVRE")"
+if [ "$LIVRE" -ge "$NECESSARIO" ]; then ok "$(L 'Tem espaço suficiente.' 'There is enough space.')"
 else
-    erro "Pode NÃO caber: faltam cerca de $(gb $(( NECESSARIO - LIVRE )))."
-    msg "Dica: restaure por partes pelo menu."
-    perguntar "Continuar mesmo assim?" || sair 0
+    erro "$(L "Pode NÃO caber: faltam cerca de $(gb $(( NECESSARIO - LIVRE )))." "It may NOT fit: about $(gb $(( NECESSARIO - LIVRE ))) missing.")"
+    msg "$(L 'Dica: restaure por partes pelo menu.' 'Tip: restore in parts using the menu.')"
+    perguntar "$(L 'Continuar mesmo assim?' 'Continue anyway?')" || sair 0
 fi
 
 # Backup guardado em disco do Linux (ext4...) mantém permissões; em NTFS/exFAT não
 FS_BK="$(findmnt -n -o FSTYPE --target "$BK" 2>/dev/null)"
 case "$FS_BK" in ext*|xfs|btrfs|f2fs) PERMS="-p" ;; *) PERMS="-p --chmod=Du=rwx,Dgo=rx,Fu=rw,Fgo=r" ;; esac
 
+# Nomes de pastas e arquivos criados no computador novo
+PASTA_WINDOWS="$(L 'Arquivos do Windows' 'Windows files')"
+ARQ_FALTAM="$(L 'PROGRAMAS QUE FALTAM INSTALAR.txt' 'PROGRAMS TO INSTALL MANUALLY.txt')"
+ARQ_PROG_WIN="$(L 'Programas do Windows antigo.txt' 'Programs from the old Windows.txt')"
+
 # ---------- Escolha do usuário ----------
 USUARIO_BK=""; ALVO_USER=""; ALVO_HOME=""
 selecionar_usuario() {
     [ -n "$USUARIO_BK" ] && return 0
     mapfile -t US < <(find "$BK/02_Usuarios" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' 2>/dev/null | sort)
-    if [ "${#US[@]}" -eq 0 ]; then aviso "Não há usuários neste backup."; return 1; fi
+    if [ "${#US[@]}" -eq 0 ]; then aviso "$(L 'Não há usuários neste backup.' 'There are no users in this backup.')"; return 1; fi
     if [ "${#US[@]}" -eq 1 ]; then USUARIO_BK="$BK/02_Usuarios/${US[0]}"
-    else escolher "Restaurar os arquivos de qual usuário do computador antigo?" "${US[@]}"; USUARIO_BK="$BK/02_Usuarios/${US[$ESCOLHA]}"; fi
+    else escolher "$(L 'Restaurar os arquivos de qual usuário do computador antigo?' 'Restore the files of which user from the old computer?')" "${US[@]}"; USUARIO_BK="$BK/02_Usuarios/${US[$ESCOLHA]}"; fi
 
     ALVO_USER="${SUDO_USER:-}"
-    if [ -z "$ALVO_USER" ] || [ "$ALVO_USER" = root ] || ! perguntar "Restaurar '$(basename "$USUARIO_BK")' para o usuário '$ALVO_USER' deste computador?"; then
-        entrada "  Digite o nome do usuário de destino: " ALVO_USER
+    if [ -z "$ALVO_USER" ] || [ "$ALVO_USER" = root ] || ! perguntar "$(L "Restaurar '$(basename "$USUARIO_BK")' para o usuário '$ALVO_USER' deste computador?" "Restore '$(basename "$USUARIO_BK")' to the user '$ALVO_USER' on this computer?")"; then
+        entrada "  $(L 'Digite o nome do usuário de destino' 'Type the destination user name'): " ALVO_USER
     fi
     ALVO_HOME="$(getent passwd "$ALVO_USER" | cut -d: -f6)"
-    if [ -z "$ALVO_HOME" ] || [ ! -d "$ALVO_HOME" ]; then erro "Usuário '$ALVO_USER' não existe."; USUARIO_BK=""; return 1; fi
+    if [ -z "$ALVO_HOME" ] || [ ! -d "$ALVO_HOME" ]; then erro "$(L "Usuário '$ALVO_USER' não existe." "User '$ALVO_USER' does not exist.")"; USUARIO_BK=""; return 1; fi
     ALVO_GRUPO="$(id -gn "$ALVO_USER")"
     return 0
 }
@@ -162,14 +184,14 @@ copiar_para_usuario() {   # $1 origem, $2 destino, demais = opções extras
     # shellcheck disable=SC2086
     rsync -rlt -og $PERMS --chown="$ALVO_USER:$ALVO_GRUPO" --info=progress2 "$@" "$o/" "$d/" 2>> "$TRANSCRIPT"
     local rc=$?
-    [ $rc -ne 0 ] && aviso "Alguns arquivos não foram copiados para '$d' (código $rc)."
+    [ $rc -ne 0 ] && aviso "$(L "Alguns arquivos não foram copiados para '$d' (código $rc)." "Some files were not copied to '$d' (code $rc).")"
     return 0
 }
 
 # ---------- Etapas ----------
 restaurar_wifi() {
-    titulo "Redes Wi-Fi"
-    if ! command -v nmcli >/dev/null 2>&1; then aviso "NetworkManager não encontrado: não dá para importar as redes."; return; fi
+    titulo "$(L 'Redes Wi-Fi' 'Wi-Fi networks')"
+    if ! command -v nmcli >/dev/null 2>&1; then aviso "$(L 'NetworkManager não encontrado: não dá para importar as redes.' 'NetworkManager not found: networks cannot be imported.')"; return; fi
     local n=0 f
     if [ "$ORIGEM" = linux ]; then
         local NM="/etc/NetworkManager/system-connections"
@@ -197,35 +219,35 @@ restaurar_wifi() {
                 open) nmcli connection add type wifi con-name "$ssid" ssid "$ssid" >/dev/null && n=$((n + 1)) ;;
                 WPA3SAE) nmcli connection add type wifi con-name "$ssid" ssid "$ssid" wifi-sec.key-mgmt sae wifi-sec.psk "$chave" >/dev/null && n=$((n + 1)) ;;
                 WPA2PSK|WPAPSK) nmcli connection add type wifi con-name "$ssid" ssid "$ssid" wifi-sec.key-mgmt wpa-psk wifi-sec.psk "$chave" >/dev/null && n=$((n + 1)) ;;
-                *) aviso "Rede '$ssid' usa login corporativo ($auth): configure manualmente." ;;
+                *) aviso "$(L "Rede '$ssid' usa login corporativo ($auth): configure manualmente." "Network '$ssid' uses enterprise login ($auth): set it up manually.")" ;;
             esac
         done
     fi
-    ok "$n redes Wi-Fi adicionadas."
+    ok "$n $(L 'redes Wi-Fi adicionadas.' 'Wi-Fi networks added.')"
 }
 
 restaurar_programas() {
-    titulo "Reinstalar programas"
+    titulo "$(L 'Reinstalar programas' 'Reinstall programs')"
     selecionar_usuario || return
     local FALTAM=() p desktop
     desktop="$(pasta_xdg "$ALVO_HOME" DESKTOP)"; mkdir -p "$desktop"
 
     if [ "$ORIGEM" = windows ]; then
-        cp "$BK/01_Programas/programas-instalados.txt" "$desktop/Programas do Windows antigo.txt" 2>/dev/null
-        chown "$ALVO_USER:$ALVO_GRUPO" "$desktop/Programas do Windows antigo.txt" 2>/dev/null
-        ok "Lista dos programas do Windows salva na Área de Trabalho, para você procurar as versões de Linux."
+        cp "$BK/01_Programas/programas-instalados.txt" "$desktop/$ARQ_PROG_WIN" 2>/dev/null
+        chown "$ALVO_USER:$ALVO_GRUPO" "$desktop/$ARQ_PROG_WIN" 2>/dev/null
+        ok "$(L 'Lista dos programas do Windows salva na Área de Trabalho, para você procurar as versões de Linux.' 'List of Windows programs saved on the Desktop, so you can look for the Linux versions.')"
         return
     fi
 
     # Pacotes do sistema (só se o backup veio da mesma família: apt->apt ou dnf->dnf)
     local lista="$BK/01_Programas/pacotes-$BK_FAMILIA.txt"
     if [ "$BK_FAMILIA" != "$FAMILIA" ]; then
-        aviso "O backup veio de um sistema $BK_FAMILIA e este usa $FAMILIA: os nomes dos pacotes são diferentes."
-        aviso "Os pacotes vão para a lista de instalação manual (Flatpak e Snap funcionam normalmente)."
+        aviso "$(L "O backup veio de um sistema $BK_FAMILIA e este usa $FAMILIA: os nomes dos pacotes são diferentes." "The backup came from a $BK_FAMILIA system and this one uses $FAMILIA: package names are different.")"
+        aviso "$(L 'Os pacotes vão para a lista de instalação manual (Flatpak e Snap funcionam normalmente).' 'The packages go to the manual installation list (Flatpak and Snap work normally).')"
         [ -f "$lista" ] && mapfile -t FALTAM < "$lista"
     elif [ -f "$lista" ]; then
         mapfile -t PACOTES < <(grep -v '^$' "$lista")
-        msg "${#PACOTES[@]} pacotes no backup. Isso precisa de internet e pode demorar."
+        msg "$(L "${#PACOTES[@]} pacotes no backup. Isso precisa de internet e pode demorar." "${#PACOTES[@]} packages in the backup. This needs internet and may take a while.")"
         if [ "$FAMILIA" = apt ]; then
             apt-get update
             local DISP=()
@@ -234,7 +256,7 @@ restaurar_programas() {
                 if apt-cache show "$p" >/dev/null 2>&1; then DISP+=("$p"); else FALTAM+=("$p"); fi
             done
             if [ "${#DISP[@]}" -gt 0 ]; then
-                msg "Instalando ${#DISP[@]} pacotes..."
+                msg "$(L "Instalando ${#DISP[@]} pacotes..." "Installing ${#DISP[@]} packages...")"
                 DEBIAN_FRONTEND=noninteractive apt-get install -y "${DISP[@]}" ||
                     for p in "${DISP[@]}"; do DEBIAN_FRONTEND=noninteractive apt-get install -y "$p" >/dev/null 2>&1 || FALTAM+=("$p"); done
             fi
@@ -243,12 +265,12 @@ restaurar_programas() {
             else dnf install -y --setopt=strict=0 "${PACOTES[@]}"; fi
             for p in "${PACOTES[@]}"; do rpm -q "$p" >/dev/null 2>&1 || FALTAM+=("$p"); done
         fi
-        ok "Pacotes do sistema finalizados."
+        ok "$(L 'Pacotes do sistema finalizados.' 'System packages finished.')"
     fi
 
     # Flatpak
     if [ -s "$BK/01_Programas/flatpak.txt" ]; then
-        command -v flatpak >/dev/null 2>&1 || { msg "Instalando o Flatpak..."; instalar flatpak >/dev/null; }
+        command -v flatpak >/dev/null 2>&1 || { msg "$(L 'Instalando o Flatpak...' 'Installing Flatpak...')"; instalar flatpak >/dev/null; }
         if command -v flatpak >/dev/null 2>&1; then
             flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
             local app remoto
@@ -258,13 +280,13 @@ restaurar_programas() {
                 msg "Flatpak: $app"
                 flatpak install -y --noninteractive "$remoto" "$app" >/dev/null 2>&1 || FALTAM+=("flatpak: $app")
             done < "$BK/01_Programas/flatpak.txt"
-            ok "Aplicativos Flatpak finalizados."
+            ok "$(L 'Aplicativos Flatpak finalizados.' 'Flatpak apps finished.')"
         fi
     fi
 
     # Snap (pula os pacotes base, que o snap instala sozinho)
     if [ -s "$BK/01_Programas/snap.txt" ]; then
-        if ! command -v snap >/dev/null 2>&1 && perguntar "O backup tem pacotes Snap. Instalar o Snap neste computador?"; then
+        if ! command -v snap >/dev/null 2>&1 && perguntar "$(L 'O backup tem pacotes Snap. Instalar o Snap neste computador?' 'The backup has Snap packages. Install Snap on this computer?')"; then
             instalar snapd >/dev/null
             [ "$FAMILIA" = dnf ] && ln -sf /var/lib/snapd/snap /snap
             systemctl enable --now snapd.socket >/dev/null 2>&1; sleep 5
@@ -277,34 +299,34 @@ restaurar_programas() {
                 if [ "$tipo" = classic ]; then snap install "$nome" --classic >/dev/null 2>&1 || FALTAM+=("snap: $nome")
                 else snap install "$nome" >/dev/null 2>&1 || FALTAM+=("snap: $nome"); fi
             done < "$BK/01_Programas/snap.txt"
-            ok "Pacotes Snap finalizados."
+            ok "$(L 'Pacotes Snap finalizados.' 'Snap packages finished.')"
         else
             while IFS=$'\t' read -r nome _; do FALTAM+=("snap: $nome"); done < "$BK/01_Programas/snap.txt"
         fi
     fi
 
     if [ "${#FALTAM[@]}" -gt 0 ]; then
-        local arq="$desktop/PROGRAMAS QUE FALTAM INSTALAR.txt"
-        { echo "Estes programas estavam no computador antigo e não foram instalados automaticamente."
-          echo "Procure por eles na loja de aplicativos ou no site de cada um:"
+        local arq="$desktop/$ARQ_FALTAM"
+        { L 'Estes programas estavam no computador antigo e não foram instalados automaticamente.' 'These programs were on the old computer and were not installed automatically.'; echo
+          L 'Procure por eles na loja de aplicativos ou no site de cada um:' 'Look for them in the app store or on their websites:'; echo
           echo
           printf -- '- %s\n' "${FALTAM[@]}"; } > "$arq"
         chown "$ALVO_USER:$ALVO_GRUPO" "$arq"
-        aviso "${#FALTAM[@]} programas precisam ser instalados manualmente. Lista salva na Área de Trabalho."
+        aviso "$(L "${#FALTAM[@]} programas precisam ser instalados manualmente. Lista salva na Área de Trabalho." "${#FALTAM[@]} programs need to be installed manually. List saved on the Desktop.")"
     else
-        ok "Todos os programas foram instalados."
+        ok "$(L 'Todos os programas foram instalados.' 'All programs were installed.')"
     fi
 }
 
 restaurar_arquivos() {
-    titulo "Arquivos do usuário"
+    titulo "$(L 'Arquivos do usuário' 'User files')"
     selecionar_usuario || return
     local EXCLUIR=() chave origem destino
     local CHAVES=(DESKTOP DOCUMENTS DOWNLOAD MUSIC PICTURES VIDEOS)
 
     if [ "$ORIGEM" = linux ]; then
         local casa_bk="$USUARIO_BK/Home"
-        [ -d "$casa_bk" ] || { aviso "Sem arquivos no backup."; return; }
+        [ -d "$casa_bk" ] || { aviso "$(L 'Sem arquivos no backup.' 'No files in the backup.')"; return; }
         # Área de Trabalho, Documentos etc. vão para as pastas certas mesmo se o idioma mudou
         for chave in "${CHAVES[@]}"; do
             origem="$(pasta_xdg "$casa_bk" "$chave")"
@@ -316,7 +338,7 @@ restaurar_arquivos() {
         copiar_para_usuario "$casa_bk" "$ALVO_HOME" -u --exclude='/.*' "${EXCLUIR[@]}"
     else
         local perfil="$USUARIO_BK/Perfil"
-        [ -d "$perfil" ] || { aviso "Sem arquivos no backup."; return; }
+        [ -d "$perfil" ] || { aviso "$(L 'Sem arquivos no backup.' 'No files in the backup.')"; return; }
         local -A WIN=([DESKTOP]=Desktop [DOCUMENTS]=Documents [DOWNLOAD]=Downloads [MUSIC]=Music [PICTURES]=Pictures [VIDEOS]=Videos)
         local LIXO=(--exclude='desktop.ini' --exclude='Thumbs.db' --exclude='*.lnk')
         for chave in "${CHAVES[@]}"; do
@@ -326,43 +348,43 @@ restaurar_arquivos() {
             EXCLUIR+=(--exclude="/${WIN[$chave]}/")
         done
         # O resto da pasta do usuário do Windows fica separado
-        copiar_para_usuario "$perfil" "$ALVO_HOME/Arquivos do Windows" -u "${EXCLUIR[@]}" "${LIXO[@]}"
-        ok "O que não era Área de Trabalho/Documentos/Downloads/Fotos/Músicas/Vídeos ficou em '$ALVO_HOME/Arquivos do Windows'."
+        copiar_para_usuario "$perfil" "$ALVO_HOME/$PASTA_WINDOWS" -u "${EXCLUIR[@]}" "${LIXO[@]}"
+        ok "$(L "O que não era Área de Trabalho/Documentos/Downloads/Fotos/Músicas/Vídeos ficou em '$ALVO_HOME/$PASTA_WINDOWS'." "Anything that was not Desktop/Documents/Downloads/Pictures/Music/Videos was placed in '$ALVO_HOME/$PASTA_WINDOWS'.")"
     fi
-    ok "Arquivos restaurados."
+    ok "$(L 'Arquivos restaurados.' 'Files restored.')"
 }
 
 restaurar_config() {
-    titulo "Configurações dos programas"
-    if [ "$ORIGEM" = windows ]; then msg "Configurações do Windows não servem no Linux: etapa pulada."; return; fi
+    titulo "$(L 'Configurações dos programas' 'Program settings')"
+    if [ "$ORIGEM" = windows ]; then msg "$(L 'Configurações do Windows não servem no Linux: etapa pulada.' 'Windows settings do not work on Linux: step skipped.')"; return; fi
     selecionar_usuario || return
-    aviso "Faça isto DEPOIS de reinstalar os programas. Isso substitui as configurações atuais deles."
-    aviso "Inclui favoritos, extensões e histórico dos navegadores, chaves SSH, configurações da área de trabalho..."
-    perguntar "Restaurar configurações agora?" || return
+    aviso "$(L 'Faça isto DEPOIS de reinstalar os programas. Isso substitui as configurações atuais deles.' 'Do this AFTER reinstalling the programs. It replaces their current settings.')"
+    aviso "$(L 'Inclui favoritos, extensões e histórico dos navegadores, chaves SSH, configurações da área de trabalho...' 'Includes browser bookmarks, extensions and history, SSH keys, desktop settings...')"
+    perguntar "$(L 'Restaurar configurações agora?' 'Restore settings now?')" || return
     local abertos
     abertos="$(pgrep -u "$ALVO_USER" -l -x 'firefox|chrome|chromium|brave|thunderbird|code|discord|spotify' 2>/dev/null | awk '{print $2}' | sort -u | tr '\n' ' ')"
     if [ -n "$abertos" ]; then
-        aviso "Programas abertos: $abertos"
-        perguntar "Fechar esses programas agora?" && pkill -u "$ALVO_USER" -x 'firefox|chrome|chromium|brave|thunderbird|code|discord|spotify' && sleep 2
+        aviso "$(L 'Programas abertos' 'Open programs'): $abertos"
+        perguntar "$(L 'Fechar esses programas agora?' 'Close these programs now?')" && pkill -u "$ALVO_USER" -x 'firefox|chrome|chromium|brave|thunderbird|code|discord|spotify' && sleep 2
     fi
     copiar_para_usuario "$USUARIO_BK/Home" "$ALVO_HOME" --include='/.*' --exclude='/*'
-    ok "Configurações restauradas. Saia da sessão e entre de novo (ou reinicie) para aplicar."
+    ok "$(L 'Configurações restauradas. Saia da sessão e entre de novo (ou reinicie) para aplicar.' 'Settings restored. Log out and back in (or restart) to apply them.')"
 }
 
 restaurar_outras() {
-    titulo "Outras pastas e discos"
+    titulo "$(L 'Outras pastas e discos' 'Other folders and disks')"
     local base="$BK/04_OutrasPastas" rel original
-    if [ ! -d "$base" ] || [ -z "$(ls -A "$base" 2>/dev/null | grep -v '^caminhos.txt$')" ]; then msg "Nada para restaurar."; return; fi
+    if [ ! -d "$base" ] || [ -z "$(ls -A "$base" 2>/dev/null | grep -v '^caminhos.txt$')" ]; then msg "$(L 'Nada para restaurar.' 'Nothing to restore.')"; return; fi
     if [ "$ORIGEM" = linux ] && [ -f "$base/caminhos.txt" ]; then
         while IFS=$'\t' read -r rel original <&3; do
             [ -d "$base/$rel" ] || continue
             if [[ "$rel" == disco_* ]]; then
                 selecionar_usuario || return
-                copiar_para_usuario "$base/$rel" "$ALVO_HOME/Restaurado/$rel" -u
-            elif perguntar "Restaurar $original para o mesmo lugar? (N = guardar em /root/Restaurado$original)"; then
+                copiar_para_usuario "$base/$rel" "$ALVO_HOME/$(L Restaurado Restored)/$rel" -u
+            elif perguntar "$(L "Restaurar $original para o mesmo lugar? (N = guardar em /root/Restaurado$original)" "Restore $original to the same place? (N = save to /root/Restored$original)")"; then
                 rsync -aHu --info=progress2 "$base/$rel/" "$original/"
             else
-                rsync -aHu --info=progress2 "$base/$rel/" "/root/Restaurado$original/"
+                rsync -aHu --info=progress2 "$base/$rel/" "/root/$(L Restaurado Restored)$original/"
             fi
         done 3< "$base/caminhos.txt"
     else
@@ -370,34 +392,34 @@ restaurar_outras() {
         local d
         for d in "$base"/*/; do
             [ -d "$d" ] || continue
-            copiar_para_usuario "${d%/}" "$ALVO_HOME/Arquivos do Windows/Disco $(basename "$d")" -u
+            copiar_para_usuario "${d%/}" "$ALVO_HOME/$PASTA_WINDOWS/$(L Disco Disk) $(basename "$d")" -u
         done
     fi
-    ok "Outras pastas restauradas."
+    ok "$(L 'Outras pastas restauradas.' 'Other folders restored.')"
 }
 
 # ---------- Menu ----------
 while true; do
-    titulo "O QUE VOCÊ QUER FAZER?"
+    titulo "$(L 'O QUE VOCÊ QUER FAZER?' 'WHAT DO YOU WANT TO DO?')"
     if [ "$ORIGEM" = linux ]; then
-        msg "[1] TUDO (recomendado) - Wi-Fi, programas, arquivos, outras pastas e configurações"
-        msg "[2] Só redes Wi-Fi"
-        msg "[3] Só reinstalar programas"
-        msg "[4] Só arquivos do usuário"
-        msg "[5] Só outras pastas / discos"
-        msg "[6] Só configurações dos programas"
+        msg "$(L '[1] TUDO (recomendado) - Wi-Fi, programas, arquivos, outras pastas e configurações' '[1] EVERYTHING (recommended) - Wi-Fi, programs, files, other folders and settings')"
+        msg "$(L '[2] Só redes Wi-Fi' '[2] Wi-Fi networks only')"
+        msg "$(L '[3] Só reinstalar programas' '[3] Reinstall programs only')"
+        msg "$(L '[4] Só arquivos do usuário' '[4] User files only')"
+        msg "$(L '[5] Só outras pastas / discos' '[5] Other folders / disks only')"
+        msg "$(L '[6] Só configurações dos programas' '[6] Program settings only')"
     else
-        msg "[1] TUDO (recomendado) - Wi-Fi, arquivos, outras pastas e lista de programas do Windows"
-        msg "[2] Só redes Wi-Fi"
-        msg "[3] Só a lista de programas do Windows"
-        msg "[4] Só arquivos do usuário"
-        msg "[5] Só outras pastas / discos"
+        msg "$(L '[1] TUDO (recomendado) - Wi-Fi, arquivos, outras pastas e lista de programas do Windows' '[1] EVERYTHING (recommended) - Wi-Fi, files, other folders and the Windows program list')"
+        msg "$(L '[2] Só redes Wi-Fi' '[2] Wi-Fi networks only')"
+        msg "$(L '[3] Só a lista de programas do Windows' '[3] Windows program list only')"
+        msg "$(L '[4] Só arquivos do usuário' '[4] User files only')"
+        msg "$(L '[5] Só outras pastas / discos' '[5] Other folders / disks only')"
     fi
-    msg "[0] Sair"
-    entrada "  Opção: " op
+    msg "$(L '[0] Sair' '[0] Exit')"
+    entrada "  $(L 'Opção' 'Option'): " op
     case "$op" in
         1) restaurar_wifi; restaurar_programas; restaurar_arquivos; restaurar_outras; restaurar_config
-           titulo "TUDO PRONTO!"; msg "Registro: $TRANSCRIPT"; msg "Reinicie o computador para finalizar." ;;
+           titulo "$(L 'TUDO PRONTO!' 'ALL DONE!')"; msg "$(L 'Registro' 'Log'): $TRANSCRIPT"; msg "$(L 'Reinicie o computador para finalizar.' 'Restart the computer to finish.')" ;;
         2) restaurar_wifi ;;
         3) restaurar_programas ;;
         4) restaurar_arquivos ;;
