@@ -28,8 +28,9 @@ if (-not (Test-Path $zip) -or -not (Test-Path $embutido)) { Write-Host 'Falha ao
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 Remove-Item $embutido
 
-Get-ChildItem $zip, $exe | ForEach-Object { '{0}  {1}' -f (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower(), $_.Name } |
-    Set-Content (Join-Path $dist 'SHA256SUMS.txt') -Encoding ascii
+# Fim de linha LF, para o "sha256sum -c" do Linux conseguir ler
+$somas = Get-ChildItem $zip, $exe | ForEach-Object { '{0}  {1}' -f (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower(), $_.Name }
+[IO.File]::WriteAllText((Join-Path $dist 'SHA256SUMS.txt'), (($somas -join "`n") + "`n"), (New-Object System.Text.ASCIIEncoding))
 
 Write-Host ''
 Get-ChildItem $dist | ForEach-Object { Write-Host ('  {0,-22} {1,8:N0} KB' -f $_.Name, ($_.Length / 1KB)) }
