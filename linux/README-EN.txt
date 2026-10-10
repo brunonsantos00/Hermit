@@ -3,7 +3,7 @@
   Ubuntu, Debian and Fedora
 =====================================================
 
-EASIEST WAY: run  bash BackupMigracao.sh  (project root) and use the menu.
+EASIEST WAY: run  bash hermit.sh  (project root) and use the menu.
 Option [5] switches the language (Português / English).
 Scripts also accept  --idioma pt  or  --idioma en.
 
@@ -20,7 +20,7 @@ STEP 1 - ON THE OLD COMPUTER
 STEP 2 - ON THE NEW COMPUTER
   1. Connect to the internet.
   2. Connect the drive, open a terminal in this folder and run:
-         bash restaurar.sh
+         bash restore.sh
   3. Choose option [1] EVERYTHING.
   4. Open "PROGRAMS TO INSTALL MANUALLY.txt" on the Desktop and install
      whatever is missing.
@@ -36,7 +36,7 @@ WHAT IS SAVED
   - Copy of /etc, crontab and computer information (for reference only)
 
 BACKUP MADE ON WINDOWS?
-  restaurar.sh also accepts backups from the Windows script: it copies the
+  restore.sh also accepts backups from the Windows script: it copies the
   Desktop, Documents, Pictures etc. to the right folders, imports the Wi-Fi
   networks and saves the list of Windows programs on the Desktop.
 
@@ -51,4 +51,4 @@ LIMITATIONS
 
 IF SOMETHING GOES WRONG
   - Copy log: 00_Info/log-copia.txt inside the backup.
-  - Everything shown on screen: ultima-execucao-backup.txt / ultima-execucao-restaurar.txt
+  - Everything shown on screen: last-run-backup.txt / last-run-restore.txt

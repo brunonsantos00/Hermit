@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # =====================================================================
-#  RESTAURAR O BACKUP (LINUX) - Ubuntu, Debian e Fedora
-#  RESTORE THE BACKUP (LINUX) - Ubuntu, Debian and Fedora
+#  HERMIT - RESTORE THE BACKUP (LINUX)
+#  Ubuntu, Debian and Fedora
 #  ----------------------------------------------------
-#  Uso / Usage:   bash restaurar.sh [--idioma pt|en]
-#  Funciona com backups feitos no Linux e também com backups feitos no Windows
-#  (nesse caso restaura os arquivos pessoais e as redes Wi-Fi).
+#  Usage:   bash restore.sh [--idioma pt|en]
+#  Works with backups made on Linux and also with backups made on Windows
+#  (in that case it restores personal files and Wi-Fi networks).
 # =====================================================================
 
 set -o pipefail
@@ -13,7 +13,7 @@ set -o pipefail
 SCRIPT="$(readlink -f "$0")"
 SCRIPT_DIR="$(dirname "$SCRIPT")"
 
-# ---------- Idioma ----------
+# ---------- Language ----------
 PEDIDO=""
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -22,8 +22,8 @@ while [ $# -gt 0 ]; do
         *) shift ;;
     esac
 done
-# shellcheck source=idioma.sh
-source "$SCRIPT_DIR/idioma.sh"
+# shellcheck source=language.sh
+source "$SCRIPT_DIR/language.sh"
 IDIOMA="$(detectar_idioma "$PEDIDO")"
 
 if [ "$EUID" -ne 0 ]; then
@@ -36,7 +36,7 @@ if [ -z "${BACKUP_INIBIDO:-}" ] && command -v systemd-inhibit >/dev/null 2>&1 &&
     exec systemd-inhibit --what=sleep:idle:handle-lid-switch --who="Backup" --why="Restore" bash "$SCRIPT" --idioma "$IDIOMA"
 fi
 
-TRANSCRIPT="$SCRIPT_DIR/ultima-execucao-restaurar.txt"
+TRANSCRIPT="$SCRIPT_DIR/last-run-restore.txt"
 : > "$TRANSCRIPT" 2>/dev/null && exec > >(tee -a "$TRANSCRIPT") 2>&1
 
 AZUL=$'\e[36m'; VERDE=$'\e[32m'; AMARELO=$'\e[33m'; VERMELHO=$'\e[31m'; CINZA=$'\e[90m'; N=$'\e[0m'
@@ -46,7 +46,7 @@ ok()        { echo "${VERDE}  [OK] $*${N}"; }
 aviso()     { echo "${AMARELO}  [!]  $*${N}"; }
 erro()      { echo "${VERMELHO}  [X]  $*${N}"; }
 msg()       { echo "  $*"; }
-# Lê uma resposta; se a entrada acabar (sem teclado), encerra em vez de perguntar para sempre
+# Reads an answer; if input ends (no keyboard), exits instead of asking forever
 entrada()   { read -r -p "$@" || { echo; erro "$(L 'Sem resposta (a entrada foi encerrada). Saindo.' 'No answer (input was closed). Exiting.')"; exit 1; }; }
 perguntar() {
     local r sn; sn="$(L '(S/N)' '(Y/N)')"
@@ -54,7 +54,7 @@ perguntar() {
 }
 sair()      { echo; read -r -p "  $(L 'Pressione ENTER para fechar' 'Press ENTER to close') " _; exit "${1:-0}"; }
 gb()        { awk -v b="${1:-0}" 'BEGIN { printf "%.1f GB", b / 1073741824 }'; }
-escolher()  {   # $1 = pergunta; demais = opções. Define ESCOLHA (índice a partir de 0)
+escolher()  {   # $1 = question; the rest = options. Sets ESCOLHA (zero-based index)
     local p="$1"; shift; local i n
     msg "$p"
     i=1; for o in "$@"; do msg "   [$i] $o"; i=$((i + 1)); done
@@ -65,7 +65,7 @@ escolher()  {   # $1 = pergunta; demais = opções. Define ESCOLHA (índice a pa
     ESCOLHA=$((n - 1))
 }
 
-# ---------- Sistema atual ----------
+# ---------- Current system ----------
 ler_os_release() { grep -m1 "^$2=" "$1" 2>/dev/null | cut -d= -f2- | tr -d '"'; }
 DISTRO_ID="$(ler_os_release /etc/os-release ID)"
 DISTRO_PARECIDA="$(ler_os_release /etc/os-release ID_LIKE)"
@@ -77,10 +77,10 @@ case " $DISTRO_ID $DISTRO_PARECIDA " in
 esac
 instalar() { case "$FAMILIA" in apt) apt-get install -y "$@" ;; dnf) dnf install -y "$@" ;; esac; }
 
-# Lê uma linha de arquivo vindo do Windows (tira BOM e \r)
+# Reads a line from a file that came from Windows (strips BOM and \r)
 primeira_linha() { head -1 "$1" 2>/dev/null | tr -d '\r' | sed 's/^\xEF\xBB\xBF//'; }
 
-# Pasta XDG (Área de Trabalho, Documentos...) de uma home. $1 = home, $2 = DESKTOP|DOCUMENTS|DOWNLOAD|MUSIC|PICTURES|VIDEOS
+# XDG folder (Desktop, Documents...) of a home. $1 = home, $2 = DESKTOP|DOCUMENTS|DOWNLOAD|MUSIC|PICTURES|VIDEOS
 pasta_xdg() {
     local casa="$1" chave="$2" linha valor
     linha="$(grep -m1 "^XDG_${chave}_DIR=" "$casa/.config/user-dirs.dirs" 2>/dev/null)"
@@ -102,7 +102,7 @@ if ! command -v rsync >/dev/null 2>&1; then
     msg "$(L 'Instalando o rsync...' 'Installing rsync...')"; [ "$FAMILIA" = apt ] && apt-get update -qq; instalar rsync >/dev/null
 fi
 
-# ---------- Procurar backups em todos os discos montados ----------
+# ---------- Look for backups on all mounted disks ----------
 mapfile -t MONTAGENS < <( { findmnt -rn -o TARGET 2>/dev/null | while read -r m; do printf '%b\n' "$m"; done
                             findmnt -n -o TARGET --target "$SCRIPT_DIR" 2>/dev/null
                             dirname "$SCRIPT_DIR"; } |
@@ -120,7 +120,7 @@ if [ "${#BACKUPS[@]}" -eq 1 ]; then BK="${BACKUPS[0]}"; else escolher "$(L 'Qual
 ok "Backup: $BK"
 [ -f "$BK/00_Info/sistema.txt" ] && head -6 "$BK/00_Info/sistema.txt" | tr -d '\r' | sed 's/^\xEF\xBB\xBF//; s/^/     /'
 
-# De onde veio o backup?
+# Where did the backup come from?
 ORIGEM="windows"; BK_FAMILIA=""
 if [ -f "$BK/00_Info/origem.txt" ] && [ "$(primeira_linha "$BK/00_Info/origem.txt")" = "linux" ]; then
     ORIGEM="linux"; BK_FAMILIA="$(sed -n 4p "$BK/00_Info/origem.txt")"
@@ -132,12 +132,12 @@ if [ "$ORIGEM" = windows ]; then
     msg "$(L 'Os programas do Windows não funcionam no Linux: a lista deles vai para a sua Área de Trabalho.' 'Windows programs do not work on Linux: their list goes to your Desktop.')"
 fi
 
-# ---------- Verificar se cabe ----------
+# ---------- Check if it fits ----------
 echo
 msg "$(L 'Calculando o tamanho do backup...' 'Calculating the backup size...')"
 TAM_BK="$(du -sb "$BK" 2>/dev/null | cut -f1)"
 LIVRE="$(df -B1 --output=avail /home 2>/dev/null | tail -1 | tr -d ' ')"
-NECESSARIO=$(( TAM_BK + TAM_BK / 20 + 5368709120 ))     # margem + espaço para os programas
+NECESSARIO=$(( TAM_BK + TAM_BK / 20 + 5368709120 ))     # margin + room for the programs
 msg "$(L 'Tamanho do backup' 'Backup size      ') : $(gb "$TAM_BK")"
 msg "$(L 'Livre em /home   ' 'Free on /home    ') : $(gb "$LIVRE")"
 if [ "$LIVRE" -ge "$NECESSARIO" ]; then ok "$(L 'Tem espaço suficiente.' 'There is enough space.')"
@@ -147,16 +147,16 @@ else
     perguntar "$(L 'Continuar mesmo assim?' 'Continue anyway?')" || sair 0
 fi
 
-# Backup guardado em disco do Linux (ext4...) mantém permissões; em NTFS/exFAT não
+# A backup stored on a Linux disk (ext4...) keeps permissions; on NTFS/exFAT it does not
 FS_BK="$(findmnt -n -o FSTYPE --target "$BK" 2>/dev/null)"
 case "$FS_BK" in ext*|xfs|btrfs|f2fs) PERMS="-p" ;; *) PERMS="-p --chmod=Du=rwx,Dgo=rx,Fu=rw,Fgo=r" ;; esac
 
-# Nomes de pastas e arquivos criados no computador novo
+# Names of folders and files created on the new computer
 PASTA_WINDOWS="$(L 'Arquivos do Windows' 'Windows files')"
 ARQ_FALTAM="$(L 'PROGRAMAS QUE FALTAM INSTALAR.txt' 'PROGRAMS TO INSTALL MANUALLY.txt')"
 ARQ_PROG_WIN="$(L 'Programas do Windows antigo.txt' 'Programs from the old Windows.txt')"
 
-# ---------- Escolha do usuário ----------
+# ---------- User selection ----------
 USUARIO_BK=""; ALVO_USER=""; ALVO_HOME=""
 selecionar_usuario() {
     [ -n "$USUARIO_BK" ] && return 0
@@ -175,8 +175,8 @@ selecionar_usuario() {
     return 0
 }
 
-# Copia com rsync já ajustando o dono dos arquivos para o usuário de destino
-copiar_para_usuario() {   # $1 origem, $2 destino, demais = opções extras
+# Copies with rsync, setting the file owner to the destination user
+copiar_para_usuario() {   # $1 source, $2 destination, the rest = extra options
     local o="$1" d="$2"; shift 2
     [ -e "$o" ] || return 0
     mkdir -p "$d" && chown "$ALVO_USER:$ALVO_GRUPO" "$d"
@@ -188,7 +188,7 @@ copiar_para_usuario() {   # $1 origem, $2 destino, demais = opções extras
     return 0
 }
 
-# ---------- Etapas ----------
+# ---------- Steps ----------
 restaurar_wifi() {
     titulo "$(L 'Redes Wi-Fi' 'Wi-Fi networks')"
     if ! command -v nmcli >/dev/null 2>&1; then aviso "$(L 'NetworkManager não encontrado: não dá para importar as redes.' 'NetworkManager not found: networks cannot be imported.')"; return; fi
@@ -198,14 +198,14 @@ restaurar_wifi() {
         mkdir -p "$NM"
         for f in "$BK/03_WiFi"/*; do
             [ -f "$f" ] && grep -q '^type=wifi' "$f" || continue
-            # tira o nome da placa de rede antiga, senão a rede não conecta na placa nova
+            # removes the old network adapter name, otherwise the network will not connect on the new adapter
             sed '/^interface-name=/d; /^mac-address=/d' "$f" > "$NM/$(basename "$f")"
             chmod 600 "$NM/$(basename "$f")"; chown root:root "$NM/$(basename "$f")"
             n=$((n + 1))
         done
         nmcli connection reload
     else
-        # Perfis exportados pelo Windows (XML)
+        # Profiles exported by Windows (XML)
         for f in "$BK/03_WiFi"/*.xml; do
             [ -f "$f" ] || continue
             local x ssid chave auth
@@ -239,7 +239,7 @@ restaurar_programas() {
         return
     fi
 
-    # Pacotes do sistema (só se o backup veio da mesma família: apt->apt ou dnf->dnf)
+    # System packages (only if the backup came from the same family: apt->apt or dnf->dnf)
     local lista="$BK/01_Programas/pacotes-$BK_FAMILIA.txt"
     if [ "$BK_FAMILIA" != "$FAMILIA" ]; then
         aviso "$(L "O backup veio de um sistema $BK_FAMILIA e este usa $FAMILIA: os nomes dos pacotes são diferentes." "The backup came from a $BK_FAMILIA system and this one uses $FAMILIA: package names are different.")"
@@ -284,7 +284,7 @@ restaurar_programas() {
         fi
     fi
 
-    # Snap (pula os pacotes base, que o snap instala sozinho)
+    # Snap (skips base packages, which snap installs by itself)
     if [ -s "$BK/01_Programas/snap.txt" ]; then
         if ! command -v snap >/dev/null 2>&1 && perguntar "$(L 'O backup tem pacotes Snap. Instalar o Snap neste computador?' 'The backup has Snap packages. Install Snap on this computer?')"; then
             instalar snapd >/dev/null
@@ -327,7 +327,7 @@ restaurar_arquivos() {
     if [ "$ORIGEM" = linux ]; then
         local casa_bk="$USUARIO_BK/Home"
         [ -d "$casa_bk" ] || { aviso "$(L 'Sem arquivos no backup.' 'No files in the backup.')"; return; }
-        # Área de Trabalho, Documentos etc. vão para as pastas certas mesmo se o idioma mudou
+        # Desktop, Documents etc. go to the right folders even if the language changed
         for chave in "${CHAVES[@]}"; do
             origem="$(pasta_xdg "$casa_bk" "$chave")"
             destino="$(pasta_xdg "$ALVO_HOME" "$chave")"
@@ -347,7 +347,7 @@ restaurar_arquivos() {
             copiar_para_usuario "$origem" "$(pasta_xdg "$ALVO_HOME" "$chave")" -u "${LIXO[@]}"
             EXCLUIR+=(--exclude="/${WIN[$chave]}/")
         done
-        # O resto da pasta do usuário do Windows fica separado
+        # The rest of the Windows user folder is kept separately
         copiar_para_usuario "$perfil" "$ALVO_HOME/$PASTA_WINDOWS" -u "${EXCLUIR[@]}" "${LIXO[@]}"
         ok "$(L "O que não era Área de Trabalho/Documentos/Downloads/Fotos/Músicas/Vídeos ficou em '$ALVO_HOME/$PASTA_WINDOWS'." "Anything that was not Desktop/Documents/Downloads/Pictures/Music/Videos was placed in '$ALVO_HOME/$PASTA_WINDOWS'.")"
     fi
