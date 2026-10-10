@@ -3,6 +3,10 @@
   Ubuntu, Debian e Fedora
 =====================================================
 
+JEITO MAIS FÁCIL: rode  bash BackupMigracao.sh  (na raiz do projeto) e use o menu.
+A opção [5] troca o idioma (Português / English).
+Os scripts também aceitam  --idioma pt  ou  --idioma en.
+
 PASSO 1 - NO COMPUTADOR ANTIGO
   1. Copie esta pasta para o HD externo.
   2. Abra o HD no gerenciador de arquivos (para ele ser montado).
