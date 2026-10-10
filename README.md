@@ -6,6 +6,10 @@ Não precisa instalar nada: usa só ferramentas que já vêm no Windows 10/11 (`
 
 ## Como usar
 
+O jeito mais fácil: dê dois cliques em **`0-ABRIR-PAINEL.bat`**. Abre uma janela com botões para fazer backup, restaurar, ver os discos conectados (com espaço livre e backups encontrados) e abrir o guia. O painel percebe sozinho quando um HD é conectado.
+
+Se preferir, dá para rodar cada etapa direto pelos `.bat`:
+
 ### 1. No computador antigo
 1. Copie esta pasta para o HD externo.
 2. Feche os programas abertos (navegador, Outlook, etc.).
@@ -59,10 +63,12 @@ BACKUP_PC\<PC>_<data>\
 
 | Arquivo | Função |
 |---|---|
+| `0-ABRIR-PAINEL.bat` | Abre o painel com botões (`painel.ps1`) |
 | `1-FAZER-BACKUP.bat` | Atalho que roda `backup.ps1` |
 | `2-RESTAURAR-BACKUP.bat` | Atalho que roda `restaurar.ps1` |
 | `backup.ps1` | Faz o backup |
 | `restaurar.ps1` | Restaura o backup (menu interativo) |
+| `painel.ps1` | Janela gráfica (WPF) que chama os scripts acima |
 | `LEIA-ME.txt` | Guia rápido para quem vai usar o HD |
 
 ## Requisitos
