@@ -1,0 +1,36 @@
+﻿<#
+    Gera os arquivos da Release na pasta dist\ :
+      Hermit-v<versão>.zip   projeto completo (Windows + Linux), para extrair no HD externo
+      Hermit-v<versão>.exe   versão portátil para Windows: um arquivo só, com o projeto embutido
+      SHA256SUMS.txt         somas de verificação
+    Usa o último commit (HEAD), então faça o commit antes de rodar.
+#>
+param([string]$Versao = '2.1')
+
+$raiz = Split-Path $PSScriptRoot -Parent
+$dist = Join-Path $raiz 'dist'
+$git = (Get-Command git.exe -ErrorAction SilentlyContinue).Source
+if (-not $git) { $git = "$env:ProgramFiles\Git\cmd\git.exe" }
+if (-not (Test-Path $git)) { Write-Host 'git não encontrado.' -ForegroundColor Red; exit 1 }
+
+New-Item -ItemType Directory -Force $dist | Out-Null
+$zip = Join-Path $dist "Hermit-v$Versao.zip"
+$embutido = Join-Path $dist '_embutido.zip'
+$exe = Join-Path $dist "Hermit-v$Versao.exe"
+Remove-Item $zip, $embutido, $exe -ErrorAction SilentlyContinue
+
+# .zip para download (com uma pasta Hermit-v<versão>\ dentro) e .zip para embutir no .exe (sem pasta)
+& $git -C $raiz archive --format=zip --prefix="Hermit-v$Versao/" -o $zip HEAD
+& $git -C $raiz archive --format=zip -o $embutido HEAD
+if (-not (Test-Path $zip) -or -not (Test-Path $embutido)) { Write-Host 'Falha ao gerar o .zip.' -ForegroundColor Red; exit 1 }
+
+& powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'compilar.ps1') -Saida $exe -Embutir $embutido
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+Remove-Item $embutido
+
+Get-ChildItem $zip, $exe | ForEach-Object { '{0}  {1}' -f (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower(), $_.Name } |
+    Set-Content (Join-Path $dist 'SHA256SUMS.txt') -Encoding ascii
+
+Write-Host ''
+Get-ChildItem $dist | ForEach-Object { Write-Host ('  {0,-22} {1,8:N0} KB' -f $_.Name, ($_.Length / 1KB)) }
+Write-Host "Arquivos da Release em: $dist" -ForegroundColor Green
