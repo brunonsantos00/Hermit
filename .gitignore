@@ -1,4 +1,7 @@
+last-run-*.txt
+last-copy-*.txt
 ultima-execucao-*.txt
+ultima-copia-*.txt
 BACKUP_PC/
 BACKUP_NOTEBOOK/
 dist/

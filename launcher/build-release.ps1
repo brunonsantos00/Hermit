@@ -1,9 +1,9 @@
 ﻿<#
-    Gera os arquivos da Release na pasta dist\ :
-      Hermit-v<versão>.zip   projeto completo (Windows + Linux), para extrair no HD externo
-      Hermit-v<versão>.exe   versão portátil para Windows: um arquivo só, com o projeto embutido
-      SHA256SUMS.txt         somas de verificação
-    Usa o último commit (HEAD), então faça o commit antes de rodar.
+    Builds the Release files in the dist\ folder:
+      Hermit-v<version>.zip   full project (Windows + Linux), to extract on the external drive
+      Hermit-v<version>.exe   portable Windows version: a single file with the project embedded
+      SHA256SUMS.txt          checksums
+    Uses the latest commit (HEAD), so commit before running it.
 #>
 param([string]$Versao = '2.1')
 
@@ -19,16 +19,16 @@ $embutido = Join-Path $dist '_embutido.zip'
 $exe = Join-Path $dist "Hermit-v$Versao.exe"
 Remove-Item $zip, $embutido, $exe -ErrorAction SilentlyContinue
 
-# .zip para download (com uma pasta Hermit-v<versão>\ dentro) e .zip para embutir no .exe (sem pasta)
+# .zip for download (with a Hermit-v<version>\ folder inside) and .zip to embed in the .exe (no folder)
 & $git -C $raiz archive --format=zip --prefix="Hermit-v$Versao/" -o $zip HEAD
 & $git -C $raiz archive --format=zip -o $embutido HEAD
 if (-not (Test-Path $zip) -or -not (Test-Path $embutido)) { Write-Host 'Falha ao gerar o .zip.' -ForegroundColor Red; exit 1 }
 
-& powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'compilar.ps1') -Saida $exe -Embutir $embutido
+& powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'build.ps1') -Saida $exe -Embutir $embutido
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 Remove-Item $embutido
 
-# Fim de linha LF, para o "sha256sum -c" do Linux conseguir ler
+# LF line endings, so Linux "sha256sum -c" can read it
 $somas = Get-ChildItem $zip, $exe | ForEach-Object { '{0}  {1}' -f (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower(), $_.Name }
 [IO.File]::WriteAllText((Join-Path $dist 'SHA256SUMS.txt'), (($somas -join "`n") + "`n"), (New-Object System.Text.ASCIIEncoding))
 

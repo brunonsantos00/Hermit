@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
 # =====================================================================
-#  BACKUP E MIGRAÇÃO - iniciador  /  BACKUP AND MIGRATION - launcher
-#  Linux (Ubuntu, Debian, Fedora): abre o menu com backup e restauração.
-#  Windows (Git Bash): abre o painel gráfico.
-#  Uso / Usage:  bash BackupMigracao.sh [--idioma pt|en]
+#  HERMIT - launcher
+#  Linux (Ubuntu, Debian, Fedora): opens the menu with backup and restore.
+#  Windows (Git Bash): opens the graphical panel.
+#  Usage:  bash hermit.sh [--idioma pt|en]
 # =====================================================================
 
 DIR="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
 
-# No Windows (Git Bash / MSYS), abre o painel
+# On Windows (Git Bash / MSYS), opens the panel
 case "$(uname -s)" in
     MINGW*|MSYS*|CYGWIN*)
-        exec powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "$(cygpath -w "$DIR/windows/painel.ps1")" ;;
+        exec powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "$(cygpath -w "$DIR/windows/panel.ps1")" ;;
 esac
 
 PEDIDO=""
@@ -22,20 +22,20 @@ while [ $# -gt 0 ]; do
         *) shift ;;
     esac
 done
-# shellcheck source=linux/idioma.sh
-source "$DIR/linux/idioma.sh"
+# shellcheck source=linux/language.sh
+source "$DIR/linux/language.sh"
 IDIOMA="$(detectar_idioma "$PEDIDO")"
 
-# Aberto com clique duplo (sem terminal): abre um terminal rodando este script
+# Opened with a double-click (no terminal): opens a terminal running this script
 if [ ! -t 0 ] && [ -z "${BM_NO_TERMINAL:-}" ]; then
     export BM_NO_TERMINAL=1
     for t in gnome-terminal kgx konsole xfce4-terminal mate-terminal x-terminal-emulator xterm; do
         command -v "$t" >/dev/null 2>&1 || continue
         case "$t" in
-            gnome-terminal)  exec gnome-terminal -- bash "$DIR/BackupMigracao.sh" --idioma "$IDIOMA" ;;
-            kgx)             exec kgx -- bash "$DIR/BackupMigracao.sh" --idioma "$IDIOMA" ;;
-            xfce4-terminal)  exec xfce4-terminal -x bash "$DIR/BackupMigracao.sh" --idioma "$IDIOMA" ;;
-            *)               exec "$t" -e bash "$DIR/BackupMigracao.sh" --idioma "$IDIOMA" ;;
+            gnome-terminal)  exec gnome-terminal -- bash "$DIR/hermit.sh" --idioma "$IDIOMA" ;;
+            kgx)             exec kgx -- bash "$DIR/hermit.sh" --idioma "$IDIOMA" ;;
+            xfce4-terminal)  exec xfce4-terminal -x bash "$DIR/hermit.sh" --idioma "$IDIOMA" ;;
+            *)               exec "$t" -e bash "$DIR/hermit.sh" --idioma "$IDIOMA" ;;
         esac
     done
 fi
@@ -51,7 +51,7 @@ voltar() { read -r -p "  $(L 'Pressione ENTER para voltar' 'Press ENTER to go ba
 criar_atalho() {
     local apps="$HOME/.local/share/applications" arq desk
     mkdir -p "$apps"
-    arq="$apps/backup-e-migracao.desktop"
+    arq="$apps/hermit.desktop"
     cat > "$arq" <<EOF
 [Desktop Entry]
 Type=Application
@@ -59,8 +59,8 @@ Name=Backup e Migração
 Name[en]=Backup and Migration
 Comment=Backup e migração de computadores Windows e Linux
 Comment[en]=Backup and migration for Windows and Linux computers
-Exec=bash "$DIR/BackupMigracao.sh"
-Icon=$DIR/assets/icone.png
+Exec=bash "$DIR/hermit.sh"
+Icon=$DIR/assets/icon.png
 Terminal=true
 Categories=System;Utility;
 EOF
@@ -68,8 +68,8 @@ EOF
     echo "${VERDE}  [OK] $(L 'Atalho criado no menu de aplicativos.' 'Shortcut created in the applications menu.')${N}"
     desk="$(xdg-user-dir DESKTOP 2>/dev/null)"; desk="${desk:-$HOME/Desktop}"
     if [ -d "$desk" ]; then
-        cp "$arq" "$desk/" && chmod +x "$desk/backup-e-migracao.desktop"
-        gio set "$desk/backup-e-migracao.desktop" metadata::trusted true 2>/dev/null
+        cp "$arq" "$desk/" && chmod +x "$desk/hermit.desktop"
+        gio set "$desk/hermit.desktop" metadata::trusted true 2>/dev/null
         echo "${VERDE}  [OK] $(L 'Atalho criado na Área de Trabalho.' 'Shortcut created on the Desktop.')${N}"
     fi
     echo "${AMARELO}  [!]  $(L "O atalho aponta para esta pasta ($DIR). Se o HD mudar de lugar, crie de novo." "The shortcut points to this folder ($DIR). If the drive moves, create it again.")${N}"
@@ -96,9 +96,9 @@ while true; do
     read -r -p "  $(L 'Opção' 'Option'): " op || exit 0
     case "$op" in
         1) bash "$DIR/linux/backup.sh" --idioma "$IDIOMA" ;;
-        2) bash "$DIR/linux/restaurar.sh" --idioma "$IDIOMA" ;;
+        2) bash "$DIR/linux/restore.sh" --idioma "$IDIOMA" ;;
         3) criar_atalho; voltar ;;
-        4) guia="$DIR/linux/$(L LEIA-ME.txt README-EN.txt)"
+        4) guia="$DIR/linux/$(L README-PT.txt README-EN.txt)"
            less "$guia" 2>/dev/null || cat "$guia"; voltar ;;
         5) if [ "$IDIOMA" = pt ]; then IDIOMA=en; else IDIOMA=pt; fi
            salvar_idioma "$IDIOMA" ;;

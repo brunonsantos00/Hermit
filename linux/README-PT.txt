@@ -3,7 +3,7 @@
   Ubuntu, Debian e Fedora
 =====================================================
 
-JEITO MAIS FÁCIL: rode  bash BackupMigracao.sh  (na raiz do projeto) e use o menu.
+JEITO MAIS FÁCIL: rode  bash hermit.sh  (na raiz do projeto) e use o menu.
 A opção [5] troca o idioma (Português / English).
 Os scripts também aceitam  --idioma pt  ou  --idioma en.
 
@@ -20,7 +20,7 @@ PASSO 1 - NO COMPUTADOR ANTIGO
 PASSO 2 - NO COMPUTADOR NOVO
   1. Ligue na internet.
   2. Ligue o HD, abra um terminal nesta pasta e rode:
-         bash restaurar.sh
+         bash restore.sh
   3. Escolha a opção [1] TUDO.
   4. Abra "PROGRAMAS QUE FALTAM INSTALAR.txt" na Área de Trabalho e
      instale manualmente o que faltar.
@@ -36,7 +36,7 @@ O QUE É SALVO
   - Cópia do /etc, crontab e informações do computador (só para consulta)
 
 BACKUP FEITO NO WINDOWS?
-  O restaurar.sh também aceita backups do script de Windows: copia a Área de
+  O restore.sh também aceita backups do script de Windows: copia a Área de
   Trabalho, Documentos, Fotos etc. para as pastas certas, importa as redes
   Wi-Fi e salva a lista dos programas do Windows na Área de Trabalho.
 
@@ -50,4 +50,4 @@ LIMITAÇÕES
 
 SE ALGO DER ERRADO
   - Log da cópia: 00_Info/log-copia.txt dentro do backup.
-  - Tudo o que apareceu na tela: ultima-execucao-backup.txt / ultima-execucao-restaurar.txt
+  - Tudo o que apareceu na tela: last-run-backup.txt / last-run-restore.txt

@@ -2,15 +2,15 @@
   BACKUP E MIGRAÇÃO DE COMPUTADOR (WINDOWS)
 =====================================================
 
-JEITO MAIS FÁCIL: dê dois cliques em "BackupMigracao.exe" (na raiz do projeto) ou em
-"0-ABRIR-PAINEL.bat" e use os botões. O botão PT | EN no topo da janela troca o
+JEITO MAIS FÁCIL: dê dois cliques em "Hermit.exe" (na raiz do projeto) ou em
+"0-OPEN-PANEL.bat" e use os botões. O botão PT | EN no topo da janela troca o
 idioma do painel e dos scripts. (Ou siga os passos abaixo com os .bat 1 e 2.)
 
 PASSO 1 - NO COMPUTADOR ANTIGO
   1. Copie esta pasta inteira para o HD externo (ou outro disco).
   2. Feche todos os programas (navegador, Outlook, WhatsApp...).
   3. Se for notebook, ligue na tomada.
-  4. Dê dois cliques em "1-FAZER-BACKUP.bat" e clique "Sim" na permissão.
+  4. Dê dois cliques em "1-BACKUP.bat" e clique "Sim" na permissão.
   5. Escolha em qual disco salvar o backup.
   6. Responda as perguntas. O script MEDE o tamanho do backup e avisa
      se não couber no disco (dá para trocar de disco ou tirar itens).
@@ -19,7 +19,7 @@ PASSO 1 - NO COMPUTADOR ANTIGO
 
 PASSO 2 - NO COMPUTADOR NOVO
   1. Ligue na internet (ou deixe o script restaurar o Wi-Fi).
-  2. Ligue o disco do backup e dê dois cliques em "2-RESTAURAR-BACKUP.bat".
+  2. Ligue o disco do backup e dê dois cliques em "2-RESTORE-BACKUP.bat".
      Ele procura o backup sozinho em todos os discos conectados
      e verifica se cabe no computador novo.
   3. Escolha a opção [1] TUDO.
@@ -27,6 +27,30 @@ PASSO 2 - NO COMPUTADOR NOVO
      e instale manualmente o que faltar.
   5. Reinicie o computador.
 
+BACKUP 2.0 - COM AS PASTAS DOS PROGRAMAS
+  "1-BACKUP-2.0.bat" faz o mesmo backup e também copia as pastas dos
+  programas instalados (Program Files, Program Files (x86), AppData\Local\Programs
+  e os dados deles em ProgramData), além dos atalhos do Menu Iniciar.
+  Na restauração, opção [1] TUDO ou [7]: as pastas voltam para o mesmo lugar, sem
+  reinstalar. Se o programa já existir no computador novo, os arquivos dele são
+  SUBSTITUÍDOS pelos do backup (programas abertos são fechados antes, se você deixar).
+  Atenção: programas que dependem de serviços, drivers ou ativação (Office, Adobe,
+  antivírus, drivers de vídeo) podem não abrir assim. Nesse caso, use a opção [3]
+  Reinstalar programas (winget).
+
+COMPARAR O BACKUP COM O COMPUTADOR
+  "3-COMPARE-BACKUP.bat" mostra o que está no backup e NÃO chegou neste computador:
+  - "Faltam": arquivos que estão no backup e não existem aqui;
+  - "Mais novos": arquivos que existem aqui, mas a versão do backup é mais nova.
+  Salva o relatório "COMPARACAO DO BACKUP.txt" na Área de Trabalho e, no final,
+  oferece copiar o que falta (sem substituir nada que já existe). Só lê: não apaga nada.
+SÓ COMPARAR (SEM COPIAR NADA)
+  "COMPARE-ONLY.bat" compara e mostra na tela, com cores, a lista do que falta
+  em cada pasta (vermelho = falta, amarelo = mais novo no backup, verde = tudo certo).
+  Não oferece cópia nenhuma.
+  Também existe a versão com janela: "Hermit-Compare.exe" (na raiz do projeto). Escolha
+  o backup, clique em Comparar e veja os totais, as pastas e os arquivos que faltam,
+  com busca por nome.
 O QUE É SALVO
   - Todos os arquivos dos usuários (Área de Trabalho, Documentos, Downloads,
     Imagens, Vídeos, Músicas, e qualquer outra pasta dentro de C:\Users\<você>)
@@ -52,5 +76,5 @@ cabem. O script avisa. Prefira NTFS ou exFAT.
 
 SE ALGO DER ERRADO
   - Log da cópia: 00_Info\log-copia.txt dentro do backup.
-  - Tudo o que apareceu na tela: ultima-execucao-backup.txt / ultima-execucao-restaurar.txt
+  - Tudo o que apareceu na tela: last-run-backup.txt / last-run-restore.txt
     (na mesma pasta dos scripts).

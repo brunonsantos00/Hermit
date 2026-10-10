@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Idioma (português / inglês) usado pelos scripts do Linux.
-# Uso:  source idioma.sh ; IDIOMA="$(detectar_idioma "$pedido")" ; msg "$(L 'Olá' 'Hello')"
+# Language (Portuguese / English) used by the Linux scripts.
+# Usage:  source language.sh ; IDIOMA="$(detectar_idioma "$pedido")" ; msg "$(L 'Olá' 'Hello')"
 
-ARQUIVO_IDIOMA="${HOME:-/root}/.config/backup-migracao/idioma"
+ARQUIVO_IDIOMA="${HOME:-/root}/.config/hermit/language"
 
-# Ordem: --idioma > variável BM_IDIOMA > escolha salva > idioma do sistema
+# Order: --idioma > BM_IDIOMA variable > saved choice > system language
 detectar_idioma() {
     local v
     for v in "${1:-}" "${BM_IDIOMA:-}"; do
@@ -12,7 +12,7 @@ detectar_idioma() {
     done
     if [ -n "${SUDO_USER:-}" ]; then
         local casa; casa="$(getent passwd "$SUDO_USER" | cut -d: -f6)"
-        [ -n "$casa" ] && ARQUIVO_IDIOMA="$casa/.config/backup-migracao/idioma"
+        [ -n "$casa" ] && ARQUIVO_IDIOMA="$casa/.config/hermit/language"
     fi
     v="$(head -1 "$ARQUIVO_IDIOMA" 2>/dev/null)"
     case "$v" in pt|en) echo "$v"; return ;; esac
@@ -21,5 +21,5 @@ detectar_idioma() {
 
 salvar_idioma() { mkdir -p "$(dirname "$ARQUIVO_IDIOMA")" 2>/dev/null && echo "$1" > "$ARQUIVO_IDIOMA" 2>/dev/null; }
 
-# Escolhe o texto do idioma atual
+# Picks the text for the current language
 L() { if [ "${IDIOMA:-pt}" = en ]; then printf '%s' "$2"; else printf '%s' "$1"; fi; }
