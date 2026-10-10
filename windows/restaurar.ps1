@@ -96,6 +96,16 @@ if ($backups.Count -eq 1) { $bk = $backups[0].FullName }
 else { $bk = $backups[(Escolher 'Qual backup restaurar?' ($backups | ForEach-Object FullName))].FullName }
 $discoHD = Split-Path -Qualifier $bk
 Ok "Backup: $bk"
+
+# Backup feito no Linux: programas e configurações não servem no Windows
+$origem = "$bk\00_Info\origem.txt"
+if ((Test-Path -LiteralPath $origem) -and ((Get-Content -LiteralPath $origem -TotalCount 1) -match 'linux')) {
+    Erro 'Este backup foi feito em um computador com LINUX.'
+    Msg  'Programas e configurações do Linux não funcionam no Windows, então não é possível restaurar por aqui.'
+    Msg  'Use o script linux/restaurar.sh em um computador com Linux,'
+    Msg  "ou copie os seus arquivos manualmente de: $bk\02_Usuarios\<usuário>\Home"
+    Sair
+}
 if (Test-Path "$bk\00_Info\sistema.txt") { Get-Content "$bk\00_Info\sistema.txt" | Select-Object -First 6 | ForEach-Object { Msg "   $_" } }
 
 # ---------- Verificar se cabe neste computador ----------
