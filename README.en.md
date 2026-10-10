@@ -54,6 +54,29 @@ The panel shows the connected devices and has **Back up** and **Restore backup**
 1. **On the old computer:** `1-FAZER-BACKUP.bat`. Choose the disk and answer the questions.
 2. **On the new computer:** `2-RESTAURAR-BACKUP.bat`. Choose **[1] EVERYTHING**.
 
+### Backup 2.0: move programs without reinstalling
+
+**`1-FAZER-BACKUP-2.0.bat`** makes the same backup and also copies the **folders of the installed programs** (`Program Files`, `Program Files (x86)`, `AppData\Local\Programs`, their data in `ProgramData` and the Start Menu shortcuts).
+
+On restore (**[1] EVERYTHING** or **[7]**), the folders go back to the same place. **If the program already exists on the new computer, its files are replaced** by the ones from the backup. If the program is open, Hermit closes it first, as long as you allow it.
+
+> Programs that depend on services, drivers or activation (Office, Adobe, antivirus, video drivers) may not open this way. For those, use option **[3] Reinstall programs** (winget).
+
+### Compare the backup with the computer
+
+**`3-COMPARAR-BACKUP.bat`** shows what is in the backup but **did not reach** this computer:
+- **Missing:** in the backup but not here.
+- **Newer:** exists here, but the backup version is newer.
+
+It saves the report `BACKUP COMPARISON.txt` on the Desktop and, at the end, offers to copy what is missing, without replacing anything that already exists. Read-only: it never deletes anything.
+
+To **only see the difference**, with no copy offer, there are two options:
+
+| Option | What it looks like |
+|---|---|
+| **`Comparador.exe`** (root) | Window: choose the backup and click **Compare**. Shows cards with the totals, folders with differences first, the missing files with the size of each one, and a search by name |
+| **`APENAS_COMPARAÇÃO.bat`** | Terminal: colored list per folder (red = missing, yellow = newer in the backup, green = all good) |
+
 ## Linux
 
 Open a terminal in the drive's `linux/` folder:

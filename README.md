@@ -54,6 +54,29 @@ O painel mostra os dispositivos conectados e tem botões para **Fazer backup** e
 1. **No computador antigo:** `1-FAZER-BACKUP.bat`. Escolha o disco e responda as perguntas.
 2. **No computador novo:** `2-RESTAURAR-BACKUP.bat`. Escolha **[1] TUDO**.
 
+### Backup 2.0: levar os programas sem reinstalar
+
+**`1-FAZER-BACKUP-2.0.bat`** faz o mesmo backup e também copia as **pastas dos programas instalados** (`Program Files`, `Program Files (x86)`, `AppData\Local\Programs`, os dados deles em `ProgramData` e os atalhos do Menu Iniciar).
+
+Na restauração (**[1] TUDO** ou **[7]**), as pastas voltam para o mesmo lugar. **Se o programa já existir no computador novo, os arquivos dele são substituídos** pelos do backup. Antes, o Hermit fecha o programa se ele estiver aberto, desde que você deixe.
+
+> Programas que dependem de serviços, drivers ou ativação (Office, Adobe, antivírus, drivers de vídeo) podem não abrir assim. Para esses, use a opção **[3] Reinstalar programas** (winget).
+
+### Comparar o backup com o computador
+
+**`3-COMPARAR-BACKUP.bat`** mostra o que está no backup e **não chegou** neste computador:
+- **Faltam:** estão no backup e não existem aqui.
+- **Mais novos:** existem aqui, mas a versão do backup é mais nova.
+
+Ele salva o relatório `COMPARACAO DO BACKUP.txt` na Área de Trabalho e, no final, oferece copiar o que falta, sem substituir nada que já existe. Só lê: nunca apaga nada.
+
+Para **só ver a diferença**, sem nenhuma oferta de cópia, há duas opções:
+
+| Opção | Como é |
+|---|---|
+| **`Comparador.exe`** (raiz) | Janela: escolha o backup e clique em **Comparar**. Mostra cartões com os totais, as pastas com diferença primeiro, os arquivos que faltam com o tamanho de cada um e uma busca por nome |
+| **`APENAS_COMPARAÇÃO.bat`** | Terminal: lista colorida por pasta (vermelho = falta, amarelo = mais novo no backup, verde = tudo certo) |
+
 ## Linux
 
 Abra um terminal na pasta `linux/` do HD:
@@ -104,6 +127,7 @@ BACKUP_PC/<PC>_<data>/
 
 ```
 BackupMigracao.exe          iniciador do Windows (abre o painel)
+Comparador.exe              janela que compara o backup com o computador
 BackupMigracao.sh           iniciador do Linux (menu + atalho com ícone)
 assets/
 ├── icone.ico / icone.png   ícone do projeto
@@ -114,10 +138,15 @@ launcher/
 windows/
 ├── 0-ABRIR-PAINEL.bat      abre o painel gráfico
 ├── 1-FAZER-BACKUP.bat      atalho para backup.ps1
+├── 1-FAZER-BACKUP-2.0.bat  backup 2.0 (também copia as pastas dos programas)
 ├── 2-RESTAURAR-BACKUP.bat  atalho para restaurar.ps1
+├── 3-COMPARAR-BACKUP.bat   compara o backup com o computador (e oferece copiar o que falta)
+├── APENAS_COMPARAÇÃO.bat   só compara e mostra a lista do que falta
 ├── painel.ps1              janela gráfica (WPF)
-├── backup.ps1              faz o backup
+├── comparador.ps1          janela do comparador (aberta pelo Comparador.exe)
+├── backup.ps1              faz o backup (normal ou 2.0)
 ├── restaurar.ps1           restaura o backup
+├── comparar.ps1            mostra o que está no backup e falta no computador
 ├── idioma.ps1              textos em português e inglês
 └── LEIA-ME.txt / README-EN.txt   guia rápido
 linux/
