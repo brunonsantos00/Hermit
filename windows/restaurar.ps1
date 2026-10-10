@@ -1,19 +1,24 @@
 ﻿<#
-    RESTAURAR O BACKUP NO COMPUTADOR NOVO
-    -----------------------------------
+    RESTAURAR O BACKUP NO COMPUTADOR NOVO / RESTORE THE BACKUP ON THE NEW COMPUTER
+    ------------------------------------------------------------------------------
     Como usar: ligue o disco do backup no computador novo e dê dois cliques em "2-RESTAURAR-BACKUP.bat".
+    Idioma: -Idioma pt | en (padrão: o escolhido no painel, ou o idioma do Windows)
 #>
+param([string]$Idioma)
+
+. (Join-Path $PSScriptRoot 'idioma.ps1')
+$script:idioma = Get-Idioma $Idioma
 
 # ---------- Rodar como administrador ----------
 $principal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
 if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
     try {
-        Start-Process powershell.exe -Verb RunAs -ErrorAction Stop -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`""
+        Start-Process powershell.exe -Verb RunAs -ErrorAction Stop -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`" -Idioma $script:idioma"
     } catch {
         Write-Host ''
-        Write-Host '  [X] É preciso clicar em "SIM" na janela de permissão do Windows.' -ForegroundColor Red
-        Write-Host '      Rode o .bat de novo e aceite.' -ForegroundColor Red
-        Read-Host '  Pressione ENTER para fechar' | Out-Null
+        Write-Host (L '  [X] É preciso clicar em "SIM" na janela de permissão do Windows.' '  [X] You need to click "YES" on the Windows permission prompt.') -ForegroundColor Red
+        Write-Host (L '      Rode o .bat de novo e aceite.' '      Run the .bat again and accept it.') -ForegroundColor Red
+        Read-Host (L '  Pressione ENTER para fechar' '  Press ENTER to close') | Out-Null
     }
     exit
 }
@@ -25,16 +30,16 @@ try { Start-Transcript -Path $script:transcript -Force | Out-Null } catch {}
 # Se acontecer qualquer erro grave, mostra na tela e NÃO fecha a janela
 trap {
     Write-Host ''
-    Write-Host "  [X] ERRO: $($_.Exception.Message)" -ForegroundColor Red
-    Write-Host "      Linha $($_.InvocationInfo.ScriptLineNumber): $($_.InvocationInfo.Line.Trim())" -ForegroundColor Red
-    Write-Host "      Registro salvo em: $script:transcript" -ForegroundColor Red
+    Write-Host "  [X] $(L 'ERRO' 'ERROR'): $($_.Exception.Message)" -ForegroundColor Red
+    Write-Host "      $(L 'Linha' 'Line') $($_.InvocationInfo.ScriptLineNumber): $($_.InvocationInfo.Line.Trim())" -ForegroundColor Red
+    Write-Host "      $(L 'Registro salvo em' 'Log saved to'): $script:transcript" -ForegroundColor Red
     try { Stop-Transcript | Out-Null } catch {}
-    Read-Host '  Pressione ENTER para fechar' | Out-Null
+    Read-Host (L '  Pressione ENTER para fechar' '  Press ENTER to close') | Out-Null
     exit 1
 }
 
 $ErrorActionPreference = 'Continue'
-$Host.UI.RawUI.WindowTitle = 'Restaurar backup'
+$Host.UI.RawUI.WindowTitle = (L 'Restaurar backup' 'Restore backup')
 
 function Titulo([string]$t) { Write-Host ''; Write-Host ('=' * 70) -ForegroundColor Cyan; Write-Host "  $t" -ForegroundColor Cyan; Write-Host ('=' * 70) -ForegroundColor Cyan }
 function Ok([string]$t)     { Write-Host "  [OK] $t" -ForegroundColor Green }
@@ -42,16 +47,17 @@ function Aviso([string]$t)  { Write-Host "  [!]  $t" -ForegroundColor Yellow }
 function Erro([string]$t)   { Write-Host "  [X]  $t" -ForegroundColor Red }
 function Msg([string]$t)    { Write-Host "  $t" }
 function Perguntar([string]$t) {
-    do { $r = (Read-Host "  $t (S/N)").Trim().ToUpper() } until ($r -eq 'S' -or $r -eq 'N')
-    return ($r -eq 'S')
+    $sn = L '(S/N)' '(Y/N)'
+    do { $r = (Read-Host "  $t $sn").Trim().ToUpper() } until ((Eh-Sim $r) -or (Eh-Nao $r))
+    return (Eh-Sim $r)
 }
 function Escolher([string]$titulo, [object[]]$itens) {
     Msg $titulo
     for ($i = 0; $i -lt $itens.Count; $i++) { Msg ("   [{0}] {1}" -f ($i + 1), $itens[$i]) }
-    do { $n = (Read-Host '  Número').Trim() -as [int] } until ($n -ge 1 -and $n -le $itens.Count)
+    do { $n = (Read-Host "  $(L 'Número' 'Number')").Trim() -as [int] } until ($n -ge 1 -and $n -le $itens.Count)
     return ($n - 1)
 }
-function Sair { Write-Host ''; try { Stop-Transcript | Out-Null } catch {}; Read-Host '  Pressione ENTER para fechar' | Out-Null; exit }
+function Sair { Write-Host ''; try { Stop-Transcript | Out-Null } catch {}; Read-Host (L '  Pressione ENTER para fechar' '  Press ENTER to close') | Out-Null; exit }
 
 Add-Type -Name Energia -Namespace Win32 -MemberDefinition '[DllImport("kernel32.dll")] public static extern uint SetThreadExecutionState(uint esFlags);'
 [Win32.Energia]::SetThreadExecutionState([uint32]'0x80000001') | Out-Null
@@ -66,7 +72,7 @@ function Copiar {
     if ($NaoSobrescreverMaisNovos) { $a += '/XO' }
     if ($ExcluirPastas.Count) { $a += '/XD'; $a += $ExcluirPastas }
     & robocopy.exe @a | Out-Host
-    if ($LASTEXITCODE -ge 8) { Aviso "Alguns arquivos não foram copiados para '$Destino' (log: $script:arquivoLog)" }
+    if ($LASTEXITCODE -ge 8) { Aviso (L "Alguns arquivos não foram copiados para '$Destino' (log: $script:arquivoLog)" "Some files were not copied to '$Destino' (log: $script:arquivoLog)") }
 }
 
 function Get-ProgramasInstalados {
@@ -82,7 +88,7 @@ function Get-ProgramasInstalados {
 function Normalizar([string]$n) { (($n -replace '\(.*?\)', '' -replace 'v?\d+(\.\d+)+', '' -replace '\s+', ' ').Trim()).ToLower() }
 
 # =====================================================================
-Titulo 'RESTAURAR BACKUP'
+Titulo (L 'RESTAURAR BACKUP' 'RESTORE BACKUP')
 
 # Procura backups em todos os discos conectados
 $backups = @(Get-CimInstance Win32_LogicalDisk | Where-Object { $_.DriveType -eq 2 -or $_.DriveType -eq 3 } | ForEach-Object {
@@ -91,25 +97,25 @@ $backups = @(Get-CimInstance Win32_LogicalDisk | Where-Object { $_.DriveType -eq
         if (Test-Path -LiteralPath $b) { Get-ChildItem -LiteralPath $b -Directory -ErrorAction SilentlyContinue }
     }
 } | Sort-Object LastWriteTime -Descending)
-if (-not $backups.Count) { Erro 'Nenhum backup encontrado. Conecte o disco que tem a pasta BACKUP_PC e rode de novo.'; Sair }
+if (-not $backups.Count) { Erro (L 'Nenhum backup encontrado. Conecte o disco que tem a pasta BACKUP_PC e rode de novo.' 'No backup found. Connect the disk that has the BACKUP_PC folder and run again.'); Sair }
 if ($backups.Count -eq 1) { $bk = $backups[0].FullName }
-else { $bk = $backups[(Escolher 'Qual backup restaurar?' ($backups | ForEach-Object FullName))].FullName }
+else { $bk = $backups[(Escolher (L 'Qual backup restaurar?' 'Which backup do you want to restore?') ($backups | ForEach-Object FullName))].FullName }
 $discoHD = Split-Path -Qualifier $bk
 Ok "Backup: $bk"
 
 # Backup feito no Linux: programas e configurações não servem no Windows
 $origem = "$bk\00_Info\origem.txt"
 if ((Test-Path -LiteralPath $origem) -and ((Get-Content -LiteralPath $origem -TotalCount 1) -match 'linux')) {
-    Erro 'Este backup foi feito em um computador com LINUX.'
-    Msg  'Programas e configurações do Linux não funcionam no Windows, então não é possível restaurar por aqui.'
-    Msg  'Use o script linux/restaurar.sh em um computador com Linux,'
-    Msg  "ou copie os seus arquivos manualmente de: $bk\02_Usuarios\<usuário>\Home"
+    Erro (L 'Este backup foi feito em um computador com LINUX.' 'This backup was made on a LINUX computer.')
+    Msg  (L 'Programas e configurações do Linux não funcionam no Windows, então não é possível restaurar por aqui.' 'Linux programs and settings do not work on Windows, so it cannot be restored here.')
+    Msg  (L 'Use o script linux/restaurar.sh em um computador com Linux,' 'Use the linux/restaurar.sh script on a Linux computer,')
+    Msg  (L "ou copie os seus arquivos manualmente de: $bk\02_Usuarios\<usuário>\Home" "or copy your files manually from: $bk\02_Usuarios\<user>\Home")
     Sair
 }
 if (Test-Path "$bk\00_Info\sistema.txt") { Get-Content "$bk\00_Info\sistema.txt" | Select-Object -First 6 | ForEach-Object { Msg "   $_" } }
 
 # ---------- Verificar se cabe neste computador ----------
-Msg 'Calculando o tamanho do backup...'
+Msg (L 'Calculando o tamanho do backup...' 'Calculating the backup size...')
 $falso = Join-Path $env:TEMP ('medir_' + [guid]::NewGuid().ToString('N'))
 $saida = & robocopy.exe $bk $falso /E /L /BYTES /NFL /NDL /NJH /R:0 /W:0
 $tamBk = [int64]0
@@ -117,14 +123,14 @@ $linha = $saida | Where-Object { $_ -match '^\s*Bytes\s*:\s*\d+' } | Select-Obje
 if ($linha -match 'Bytes\s*:\s*(\d+)') { $tamBk = [int64]$Matches[1] }
 $livreSis = [int64](Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='$env:SystemDrive'").FreeSpace
 $necessario = [int64]($tamBk * 1.05) + 5GB    # margem + espaço para os programas que vão ser instalados
-Msg ('Tamanho do backup : {0:N1} GB' -f ($tamBk / 1GB))
-Msg ('Livre no disco {0} : {1:N1} GB' -f $env:SystemDrive, ($livreSis / 1GB))
+Msg ('{0} : {1:N1} GB' -f (L 'Tamanho do backup' 'Backup size      '), ($tamBk / 1GB))
+Msg ('{0} {1} : {2:N1} GB' -f (L 'Livre no disco' 'Free on disk  '), $env:SystemDrive, ($livreSis / 1GB))
 if ($livreSis -ge $necessario) {
-    Ok 'Tem espaço suficiente.'
+    Ok (L 'Tem espaço suficiente.' 'There is enough space.')
 } else {
-    Erro ('Pode NÃO caber: faltam cerca de {0:N1} GB no disco {1}.' -f (($necessario - $livreSis) / 1GB), $env:SystemDrive)
-    Msg 'Dica: restaure por partes pelo menu, ou mande os "outros discos" para outro disco.'
-    if (-not (Perguntar 'Continuar mesmo assim?')) { Sair }
+    Erro ((L 'Pode NÃO caber: faltam cerca de {0:N1} GB no disco {1}.' 'It may NOT fit: about {0:N1} GB missing on disk {1}.') -f (($necessario - $livreSis) / 1GB), $env:SystemDrive)
+    Msg (L 'Dica: restaure por partes pelo menu, ou mande os "outros discos" para outro disco.' 'Tip: restore in parts using the menu, or send the "other disks" to another disk.')
+    if (-not (Perguntar (L 'Continuar mesmo assim?' 'Continue anyway?'))) { Sair }
 }
 
 # ---------- Escolha do usuário (de onde -> para onde) ----------
@@ -133,22 +139,22 @@ $script:alvo = $null
 function Selecionar-Usuario {
     if ($script:usuarioBk) { return $true }
     $usuarios = @(Get-ChildItem -LiteralPath "$bk\02_Usuarios" -Directory -ErrorAction SilentlyContinue)
-    if (-not $usuarios.Count) { Aviso 'Não há usuários neste backup.'; return $false }
+    if (-not $usuarios.Count) { Aviso (L 'Não há usuários neste backup.' 'There are no users in this backup.'); return $false }
     if ($usuarios.Count -eq 1) { $script:usuarioBk = $usuarios[0].FullName }
-    else { $script:usuarioBk = $usuarios[(Escolher 'Restaurar os arquivos de qual usuário do computador antigo?' ($usuarios | ForEach-Object Name))].FullName }
+    else { $script:usuarioBk = $usuarios[(Escolher (L 'Restaurar os arquivos de qual usuário do computador antigo?' 'Restore the files of which user from the old computer?') ($usuarios | ForEach-Object Name))].FullName }
     $script:alvo = $env:USERPROFILE
-    if (-not (Perguntar "Restaurar '$(Split-Path $script:usuarioBk -Leaf)' para '$script:alvo'?")) {
-        $script:alvo = (Read-Host '  Digite a pasta do usuário de destino (ex: C:\Users\Fulano)').Trim().Trim('"')
-        if (-not (Test-Path -LiteralPath $script:alvo)) { Erro 'Pasta não existe.'; $script:usuarioBk = $null; return $false }
+    if (-not (Perguntar (L "Restaurar '$(Split-Path $script:usuarioBk -Leaf)' para '$script:alvo'?" "Restore '$(Split-Path $script:usuarioBk -Leaf)' to '$script:alvo'?"))) {
+        $script:alvo = (Read-Host (L '  Digite a pasta do usuário de destino (ex: C:\Users\Fulano)' '  Type the destination user folder (e.g. C:\Users\John)')).Trim().Trim('"')
+        if (-not (Test-Path -LiteralPath $script:alvo)) { Erro (L 'Pasta não existe.' 'Folder does not exist.'); $script:usuarioBk = $null; return $false }
     }
     return $true
 }
 
 # ---------- Etapas ----------
 function Restaurar-WiFi {
-    Titulo 'Redes Wi-Fi'
+    Titulo (L 'Redes Wi-Fi' 'Wi-Fi networks')
     $xmls = @(Get-ChildItem "$bk\03_WiFi\*.xml" -ErrorAction SilentlyContinue)
-    if (-not $xmls.Count) { Msg 'Nenhuma rede no backup.'; return }
+    if (-not $xmls.Count) { Msg (L 'Nenhuma rede no backup.' 'No networks in the backup.'); return }
     $i = 0
     foreach ($x in $xmls) {
         $tmp = "$env:SystemRoot\Temp\wifi_$i.xml"; $i++
@@ -156,22 +162,22 @@ function Restaurar-WiFi {
         & netsh.exe wlan add profile filename="$tmp" user=all | Out-Host
         Remove-Item $tmp -Force
     }
-    Ok "$($xmls.Count) redes Wi-Fi adicionadas."
+    Ok (L "$($xmls.Count) redes Wi-Fi adicionadas." "$($xmls.Count) Wi-Fi networks added.")
 }
 
 function Restaurar-Programas {
-    Titulo 'Reinstalar programas'
+    Titulo (L 'Reinstalar programas' 'Reinstall programs')
     if (-not (Get-Command winget.exe -ErrorAction SilentlyContinue)) {
-        Erro 'winget não encontrado. Atualize o "Instalador de Aplicativo" na Microsoft Store e rode de novo.'
+        Erro (L 'winget não encontrado. Atualize o "Instalador de Aplicativo" na Microsoft Store e rode de novo.' 'winget not found. Update "App Installer" in the Microsoft Store and run again.')
         Start-Process 'ms-windows-store://pdp/?productid=9NBLGGH4NNS1'
         return
     }
     $json = "$bk\01_Programas\programas-winget.json"
     if (Test-Path $json) {
-        Aviso 'Isso precisa de internet e pode demorar. Algumas janelas de instalação podem aparecer.'
+        Aviso (L 'Isso precisa de internet e pode demorar. Algumas janelas de instalação podem aparecer.' 'This needs internet and may take a while. Some installer windows may appear.')
         & winget.exe import -i $json --accept-package-agreements --accept-source-agreements --ignore-unavailable --ignore-versions | Out-Host
-        Ok 'Instalação automática finalizada.'
-    } else { Aviso 'Este backup não tem lista do winget.' }
+        Ok (L 'Instalação automática finalizada.' 'Automatic installation finished.')
+    } else { Aviso (L 'Este backup não tem lista do winget.' 'This backup has no winget list.') }
 
     # Compara com a lista completa do computador antigo
     $csv = "$bk\01_Programas\programas-instalados.csv"
@@ -180,21 +186,21 @@ function Restaurar-Programas {
         $ruido = 'Microsoft Visual C\+\+|\.NET|Windows SDK|Update for|\(KB\d+\)|Runtime|Redistributable|Driver|Microsoft Edge WebView'
         $faltando = @(Import-Csv $csv | Where-Object { $_.DisplayName -notmatch $ruido -and $atuais -notcontains (Normalizar $_.DisplayName) })
         if ($faltando.Count) {
-            $arq = Join-Path ([Environment]::GetFolderPath('Desktop')) 'PROGRAMAS QUE FALTAM INSTALAR.txt'
-            @('Estes programas estavam no computador antigo e não foram instalados automaticamente.',
-              'Baixe e instale manualmente os que você ainda usa:', '') +
+            $arq = Join-Path ([Environment]::GetFolderPath('Desktop')) (L 'PROGRAMAS QUE FALTAM INSTALAR.txt' 'PROGRAMS TO INSTALL MANUALLY.txt')
+            @((L 'Estes programas estavam no computador antigo e não foram instalados automaticamente.' 'These programs were on the old computer and were not installed automatically.'),
+              (L 'Baixe e instale manualmente os que você ainda usa:' 'Download and install the ones you still use:'), '') +
               ($faltando | ForEach-Object { '- {0}   ({1})' -f $_.DisplayName, $_.Publisher }) | Out-File $arq -Encoding utf8
-            Aviso "$($faltando.Count) programas precisam ser instalados manualmente. Lista salva na Área de Trabalho."
+            Aviso (L "$($faltando.Count) programas precisam ser instalados manualmente. Lista salva na Área de Trabalho." "$($faltando.Count) programs need to be installed manually. List saved on the Desktop.")
             Start-Process notepad.exe "`"$arq`""
-        } else { Ok 'Todos os programas da lista parecem instalados.' }
+        } else { Ok (L 'Todos os programas da lista parecem instalados.' 'All programs on the list seem to be installed.') }
     }
 }
 
 function Restaurar-Arquivos {
-    Titulo 'Arquivos do usuário'
+    Titulo (L 'Arquivos do usuário' 'User files')
     if (-not (Selecionar-Usuario)) { return }
     $perfilBk = "$script:usuarioBk\Perfil"
-    if (-not (Test-Path -LiteralPath $perfilBk)) { Aviso 'Sem arquivos de perfil no backup.'; return }
+    if (-not (Test-Path -LiteralPath $perfilBk)) { Aviso (L 'Sem arquivos de perfil no backup.' 'No profile files in the backup.'); return }
 
     # Pastas conhecidas vão para o local real delas no computador novo (pode ser dentro do OneDrive)
     $mapa = [ordered]@{ 'Desktop' = 'Desktop'; 'Documents' = 'Personal'; 'Downloads' = '{374DE290-123F-4565-9164-39C4925E467B}'
@@ -211,39 +217,40 @@ function Restaurar-Arquivos {
     }
 
     # Pastas do OneDrive antigo vão para uma pasta separada (para não bagunçar o OneDrive novo)
+    $pastaOneDrive = L 'OneDrive do computador antigo' 'OneDrive from the old computer'
     foreach ($od in @(Get-ChildItem -LiteralPath $perfilBk -Directory -Filter 'OneDrive*' -ErrorAction SilentlyContinue)) {
-        Copiar $od.FullName (Join-Path $script:alvo "OneDrive do computador antigo\$($od.Name)") -NaoSobrescreverMaisNovos
+        Copiar $od.FullName (Join-Path $script:alvo "$pastaOneDrive\$($od.Name)") -NaoSobrescreverMaisNovos
         $excluir += $od.FullName
-        Aviso "Arquivos do OneDrive antigo ficaram em '$script:alvo\OneDrive do computador antigo' (os da nuvem voltam ao entrar no OneDrive)."
+        Aviso (L "Arquivos do OneDrive antigo ficaram em '$script:alvo\$pastaOneDrive' (os da nuvem voltam ao entrar no OneDrive)." "Old OneDrive files were placed in '$script:alvo\$pastaOneDrive' (cloud files come back when you sign in to OneDrive).")
     }
 
     # Todo o resto da pasta do usuário
     Copiar $perfilBk $script:alvo -ExcluirPastas $excluir -NaoSobrescreverMaisNovos
-    Ok 'Arquivos restaurados.'
+    Ok (L 'Arquivos restaurados.' 'Files restored.')
 }
 
 function Restaurar-AppData {
-    Titulo 'Configurações dos programas (AppData)'
+    Titulo (L 'Configurações dos programas (AppData)' 'Program settings (AppData)')
     if (-not (Selecionar-Usuario)) { return }
-    Aviso 'Faça isto DEPOIS de reinstalar os programas. Isso substitui as configurações atuais deles.'
-    Aviso 'Inclui favoritos/extensões/histórico dos navegadores. Senhas salvas no navegador NÃO funcionam'
-    Aviso 'em outro PC (o Windows criptografa) - para isso entre na sua conta Google/Microsoft no navegador.'
-    if (-not (Perguntar 'Restaurar configurações agora?')) { return }
+    Aviso (L 'Faça isto DEPOIS de reinstalar os programas. Isso substitui as configurações atuais deles.' 'Do this AFTER reinstalling the programs. It replaces their current settings.')
+    Aviso (L 'Inclui favoritos/extensões/histórico dos navegadores. Senhas salvas no navegador NÃO funcionam' 'Includes browser bookmarks/extensions/history. Passwords saved in the browser do NOT work')
+    Aviso (L 'em outro PC (o Windows criptografa) - para isso entre na sua conta Google/Microsoft no navegador.' 'on another PC (Windows encrypts them) - sign in to your Google/Microsoft account in the browser instead.')
+    if (-not (Perguntar (L 'Restaurar configurações agora?' 'Restore settings now?'))) { return }
 
     $abertos = @(Get-Process chrome, msedge, brave, vivaldi, firefox, opera, outlook, discord, spotify, code -ErrorAction SilentlyContinue)
     if ($abertos.Count) {
-        Aviso ('Programas abertos: ' + (($abertos | Select-Object -ExpandProperty Name -Unique) -join ', '))
-        if (Perguntar 'Fechar esses programas agora?') { $abertos | Stop-Process -Force -ErrorAction SilentlyContinue; Start-Sleep 2 }
+        Aviso ((L 'Programas abertos: ' 'Open programs: ') + (($abertos | Select-Object -ExpandProperty Name -Unique) -join ', '))
+        if (Perguntar (L 'Fechar esses programas agora?' 'Close these programs now?')) { $abertos | Stop-Process -Force -ErrorAction SilentlyContinue; Start-Sleep 2 }
     }
     Copiar "$script:usuarioBk\AppData\Roaming" "$script:alvo\AppData\Roaming"
     Copiar "$script:usuarioBk\AppData\Local"   "$script:alvo\AppData\Local"
-    Ok 'Configurações restauradas. Reinicie o computador depois.'
+    Ok (L 'Configurações restauradas. Reinicie o computador depois.' 'Settings restored. Restart the computer afterwards.')
 }
 
 function Restaurar-OutrasPastas {
-    Titulo 'Outras pastas e discos'
+    Titulo (L 'Outras pastas e discos' 'Other folders and disks')
     $grupos = @(Get-ChildItem -LiteralPath "$bk\04_OutrasPastas" -Directory -ErrorAction SilentlyContinue)
-    if (-not $grupos.Count) { Msg 'Nada para restaurar.'; return }
+    if (-not $grupos.Count) { Msg (L 'Nada para restaurar.' 'Nothing to restore.'); return }
     $letraSis = $env:SystemDrive.TrimEnd(':')
     foreach ($g in $grupos) {
         $l = $g.Name
@@ -254,28 +261,28 @@ function Restaurar-OutrasPastas {
             continue
         }
         $destPadrao = "$env:SystemDrive\Restaurado_disco_$l"
-        if ((Test-Path "$l`:\") -and "$l`:" -ne $discoHD -and (Perguntar "Restaurar o antigo disco $l`: para o disco $l`: deste computador? (N = $destPadrao)")) {
+        if ((Test-Path "$l`:\") -and "$l`:" -ne $discoHD -and (Perguntar (L "Restaurar o antigo disco $l`: para o disco $l`: deste computador? (N = $destPadrao)" "Restore the old disk $l`: to disk $l`: on this computer? (N = $destPadrao)"))) {
             Copiar $g.FullName "$l`:\" -NaoSobrescreverMaisNovos
         } else {
             Copiar $g.FullName $destPadrao -NaoSobrescreverMaisNovos
         }
     }
-    Ok 'Outras pastas restauradas.'
+    Ok (L 'Outras pastas restauradas.' 'Other folders restored.')
 }
 
 # ---------- Menu ----------
 while ($true) {
-    Titulo 'O QUE VOCÊ QUER FAZER?'
-    Msg '[1] TUDO (recomendado) - Wi-Fi, programas, arquivos, outras pastas e configurações'
-    Msg '[2] Só redes Wi-Fi'
-    Msg '[3] Só reinstalar programas'
-    Msg '[4] Só arquivos do usuário (Área de Trabalho, Documentos, Fotos...)'
-    Msg '[5] Só outras pastas / discos'
-    Msg '[6] Só configurações dos programas (AppData)'
-    Msg '[0] Sair'
-    switch ((Read-Host '  Opção').Trim()) {
+    Titulo (L 'O QUE VOCÊ QUER FAZER?' 'WHAT DO YOU WANT TO DO?')
+    Msg (L '[1] TUDO (recomendado) - Wi-Fi, programas, arquivos, outras pastas e configurações' '[1] EVERYTHING (recommended) - Wi-Fi, programs, files, other folders and settings')
+    Msg (L '[2] Só redes Wi-Fi' '[2] Wi-Fi networks only')
+    Msg (L '[3] Só reinstalar programas' '[3] Reinstall programs only')
+    Msg (L '[4] Só arquivos do usuário (Área de Trabalho, Documentos, Fotos...)' '[4] User files only (Desktop, Documents, Pictures...)')
+    Msg (L '[5] Só outras pastas / discos' '[5] Other folders / disks only')
+    Msg (L '[6] Só configurações dos programas (AppData)' '[6] Program settings only (AppData)')
+    Msg (L '[0] Sair' '[0] Exit')
+    switch ((Read-Host "  $(L 'Opção' 'Option')").Trim()) {
         '1' { Restaurar-WiFi; Restaurar-Programas; Restaurar-Arquivos; Restaurar-OutrasPastas; Restaurar-AppData
-              Titulo 'TUDO PRONTO!'; Msg "Log: $script:arquivoLog"; Msg 'Reinicie o computador para finalizar.' }
+              Titulo (L 'TUDO PRONTO!' 'ALL DONE!'); Msg "Log: $script:arquivoLog"; Msg (L 'Reinicie o computador para finalizar.' 'Restart the computer to finish.') }
         '2' { Restaurar-WiFi }
         '3' { Restaurar-Programas }
         '4' { Restaurar-Arquivos }

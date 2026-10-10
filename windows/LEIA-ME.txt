@@ -2,8 +2,9 @@
   BACKUP E MIGRAÇÃO DE COMPUTADOR (WINDOWS)
 =====================================================
 
-JEITO MAIS FÁCIL: dê dois cliques em "0-ABRIR-PAINEL.bat" e use os botões.
-(Ou siga os passos abaixo com os .bat 1 e 2.)
+JEITO MAIS FÁCIL: dê dois cliques em "BackupMigracao.exe" (na raiz do projeto) ou em
+"0-ABRIR-PAINEL.bat" e use os botões. O botão PT | EN no topo da janela troca o
+idioma do painel e dos scripts. (Ou siga os passos abaixo com os .bat 1 e 2.)
 
 PASSO 1 - NO COMPUTADOR ANTIGO
   1. Copie esta pasta inteira para o HD externo (ou outro disco).

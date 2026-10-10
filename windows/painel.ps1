@@ -1,8 +1,8 @@
 ﻿<#
-    PAINEL - Backup e Migração
-    --------------------------
+    PAINEL - Backup e Migração / Backup and Migration
+    -------------------------------------------------
     Janela com botões para fazer e restaurar o backup sem precisar mexer no terminal.
-    Abra com "0-ABRIR-PAINEL.bat".
+    Abra com "BackupMigracao.exe" (na raiz) ou "0-ABRIR-PAINEL.bat".
 #>
 
 Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
@@ -13,19 +13,18 @@ try {
     [void][Win32.Shell]::SetCurrentProcessExplicitAppUserModelID('BackupMigracao.Painel')
 } catch {}
 
-$versao = '2.0'
+. (Join-Path $PSScriptRoot 'idioma.ps1')
+$script:idioma = Get-Idioma ''
+
+$versao = '2.1'
 
 $xaml = @'
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Backup e Migração" Width="980" SizeToContent="Height" WindowStartupLocation="CenterScreen"
+        Title="Backup" Width="980" SizeToContent="Height" WindowStartupLocation="CenterScreen"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent" ResizeMode="CanMinimize"
         FontFamily="Segoe UI" TextOptions.TextFormattingMode="Display" UseLayoutRounding="True">
   <Window.Resources>
-    <SolidColorBrush x:Key="Texto" Color="#1B2A3A"/>
-    <SolidColorBrush x:Key="TextoSuave" Color="#5B6B7F"/>
-    <SolidColorBrush x:Key="Borda" Color="#D5DCE5"/>
-
     <Style x:Key="Rotulo" TargetType="TextBlock">
       <Setter Property="Foreground" Value="#5B6B7F"/>
       <Setter Property="FontSize" Value="11"/>
@@ -105,6 +104,29 @@ $xaml = @'
       </Setter>
     </Style>
 
+    <!-- Botões do seletor de idioma -->
+    <Style x:Key="BotaoIdioma" TargetType="Button">
+      <Setter Property="Foreground" Value="#C9D6E3"/>
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="FontSize" Value="11.5"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="Width" Value="38"/>
+      <Setter Property="Height" Value="24"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Button">
+            <Border x:Name="b" Background="{TemplateBinding Background}" CornerRadius="2">
+              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="b" Property="Opacity" Value="0.85"/></Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
     <!-- Botões da barra de título -->
     <Style x:Key="BotaoJanela" TargetType="Button">
       <Setter Property="Foreground" Value="#C9D6E3"/>
@@ -147,11 +169,18 @@ $xaml = @'
                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
             </Border>
             <StackPanel Margin="12,0,0,0" VerticalAlignment="Center">
-              <TextBlock Text="Backup e Migração" Foreground="White" FontSize="15" FontWeight="SemiBold"/>
-              <TextBlock Text="Backup e migração de estações de trabalho" Foreground="#9FB3C8" FontSize="11.5"/>
+              <TextBlock x:Name="TxtTitulo" Foreground="White" FontSize="15" FontWeight="SemiBold"/>
+              <TextBlock x:Name="TxtSubtitulo" Foreground="#9FB3C8" FontSize="11.5"/>
             </StackPanel>
           </StackPanel>
           <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
+            <Border BorderBrush="#2D5078" BorderThickness="1" CornerRadius="3" Padding="2" Margin="0,4,14,0" VerticalAlignment="Top"
+                    ToolTip="Idioma / Language">
+              <StackPanel Orientation="Horizontal">
+                <Button x:Name="BtnPT" Style="{StaticResource BotaoIdioma}" Content="PT"/>
+                <Button x:Name="BtnEN" Style="{StaticResource BotaoIdioma}" Content="EN"/>
+              </StackPanel>
+            </Border>
             <Button x:Name="BtnMinimizar" Style="{StaticResource BotaoJanela}" Content="&#xE921;"/>
             <Button x:Name="BtnFechar" Style="{StaticResource BotaoJanela}" Content="&#xE8BB;"/>
           </StackPanel>
@@ -165,7 +194,7 @@ $xaml = @'
 
       <!-- Corpo -->
       <StackPanel Grid.Row="2" Margin="24,20,24,20">
-        <TextBlock Text="AÇÕES" Style="{StaticResource Rotulo}"/>
+        <TextBlock x:Name="TxtAcoes" Style="{StaticResource Rotulo}"/>
         <Grid Margin="0,8,0,0">
           <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*"/>
@@ -185,9 +214,8 @@ $xaml = @'
                            HorizontalAlignment="Center" VerticalAlignment="Center"/>
               </Border>
               <StackPanel Grid.Column="1" Margin="16,0,12,0" VerticalAlignment="Center">
-                <TextBlock Text="Fazer backup" FontSize="15" FontWeight="SemiBold" Foreground="#1B2A3A"/>
-                <TextBlock Text="Salva arquivos, configurações, redes Wi-Fi e a lista de programas desta estação."
-                           FontSize="12" Foreground="#5B6B7F" TextWrapping="Wrap" Margin="0,3,0,0"/>
+                <TextBlock x:Name="TxtBackupTitulo" FontSize="15" FontWeight="SemiBold" Foreground="#1B2A3A"/>
+                <TextBlock x:Name="TxtBackupDesc" FontSize="12" Foreground="#5B6B7F" TextWrapping="Wrap" Margin="0,3,0,0"/>
               </StackPanel>
               <TextBlock Grid.Column="2" Text="&#xE76C;" FontFamily="Segoe MDL2 Assets" FontSize="12" Foreground="#8A97A8" VerticalAlignment="Center"/>
             </Grid>
@@ -205,9 +233,8 @@ $xaml = @'
                            HorizontalAlignment="Center" VerticalAlignment="Center"/>
               </Border>
               <StackPanel Grid.Column="1" Margin="16,0,12,0" VerticalAlignment="Center">
-                <TextBlock Text="Restaurar backup" FontSize="15" FontWeight="SemiBold" Foreground="#1B2A3A"/>
-                <TextBlock Text="Transfere o backup para esta estação e reinstala os programas automaticamente."
-                           FontSize="12" Foreground="#5B6B7F" TextWrapping="Wrap" Margin="0,3,0,0"/>
+                <TextBlock x:Name="TxtRestTitulo" FontSize="15" FontWeight="SemiBold" Foreground="#1B2A3A"/>
+                <TextBlock x:Name="TxtRestDesc" FontSize="12" Foreground="#5B6B7F" TextWrapping="Wrap" Margin="0,3,0,0"/>
               </StackPanel>
               <TextBlock Grid.Column="2" Text="&#xE76C;" FontFamily="Segoe MDL2 Assets" FontSize="12" Foreground="#8A97A8" VerticalAlignment="Center"/>
             </Grid>
@@ -216,11 +243,11 @@ $xaml = @'
 
         <!-- Dispositivos -->
         <Grid Margin="0,22,0,8">
-          <TextBlock Text="DISPOSITIVOS DE ARMAZENAMENTO" Style="{StaticResource Rotulo}" VerticalAlignment="Center"/>
+          <TextBlock x:Name="TxtDispositivos" Style="{StaticResource Rotulo}" VerticalAlignment="Center"/>
           <Button x:Name="BtnAtualizar" Style="{StaticResource BotaoLink}" HorizontalAlignment="Right">
             <StackPanel Orientation="Horizontal">
               <TextBlock Text="&#xE72C;" FontFamily="Segoe MDL2 Assets" FontSize="11" VerticalAlignment="Center"/>
-              <TextBlock Text="Atualizar" Margin="6,0,0,0"/>
+              <TextBlock x:Name="TxtAtualizar" Margin="6,0,0,0"/>
             </StackPanel>
           </Button>
         </Grid>
@@ -236,7 +263,7 @@ $xaml = @'
         </Border>
 
         <!-- Último backup -->
-        <TextBlock Text="ÚLTIMO BACKUP" Style="{StaticResource Rotulo}" Margin="0,22,0,8"/>
+        <TextBlock x:Name="TxtUltimoRotulo" Style="{StaticResource Rotulo}" Margin="0,22,0,8"/>
         <Border Background="White" BorderBrush="#D5DCE5" BorderThickness="1" CornerRadius="4" Padding="16,12">
           <Grid>
             <Grid.ColumnDefinitions>
@@ -257,19 +284,19 @@ $xaml = @'
             <Button x:Name="BtnPasta" Style="{StaticResource BotaoRodape}">
               <StackPanel Orientation="Horizontal">
                 <TextBlock Text="&#xE8B7;" FontFamily="Segoe MDL2 Assets" FontSize="12" VerticalAlignment="Center" Foreground="#5B6B7F"/>
-                <TextBlock Text="Abrir backups" Margin="8,0,0,0"/>
+                <TextBlock x:Name="TxtPasta" Margin="8,0,0,0"/>
               </StackPanel>
             </Button>
             <Button x:Name="BtnGuia" Style="{StaticResource BotaoRodape}">
               <StackPanel Orientation="Horizontal">
                 <TextBlock Text="&#xE897;" FontFamily="Segoe MDL2 Assets" FontSize="12" VerticalAlignment="Center" Foreground="#5B6B7F"/>
-                <TextBlock Text="Guia rápido" Margin="8,0,0,0"/>
+                <TextBlock x:Name="TxtGuia" Margin="8,0,0,0"/>
               </StackPanel>
             </Button>
             <Button x:Name="BtnRegistro" Style="{StaticResource BotaoRodape}">
               <StackPanel Orientation="Horizontal">
                 <TextBlock Text="&#xE9F9;" FontFamily="Segoe MDL2 Assets" FontSize="12" VerticalAlignment="Center" Foreground="#5B6B7F"/>
-                <TextBlock Text="Ver registro" Margin="8,0,0,0"/>
+                <TextBlock x:Name="TxtRegistro" Margin="8,0,0,0"/>
               </StackPanel>
             </Button>
           </StackPanel>
@@ -287,7 +314,7 @@ $xaml = @'
 try {
     $janela = [Windows.Markup.XamlReader]::Parse($xaml)
 } catch {
-    [Windows.MessageBox]::Show("Não foi possível abrir o painel:`n$($_.Exception.Message)", 'Backup e Migração', 'OK', 'Error') | Out-Null
+    [Windows.MessageBox]::Show("$(L 'Não foi possível abrir o painel' 'Could not open the panel'):`n$($_.Exception.Message)", 'Backup', 'OK', 'Error') | Out-Null
     exit 1
 }
 function Ctrl([string]$nome) { $janela.FindName($nome) }
@@ -297,6 +324,7 @@ $arquivoIcone = Join-Path (Split-Path $PSScriptRoot -Parent) 'assets\icone.ico'
 if (Test-Path -LiteralPath $arquivoIcone) {
     try { $janela.Icon = [Windows.Media.Imaging.BitmapFrame]::Create((New-Object Uri $arquivoIcone)) } catch {}
 }
+
 $conversor = New-Object Windows.Media.BrushConverter
 function Cor([string]$hex) { $conversor.ConvertFromString($hex) }
 
@@ -338,25 +366,7 @@ function Nova-GradeTabela {
     return $g
 }
 
-# Faixa de informações da estação
 $sistema = Get-CimInstance Win32_OperatingSystem
-$faixa = Ctrl 'FaixaInfo'
-foreach ($par in @(@('Estação', $env:COMPUTERNAME), @('Sistema', ($sistema.Caption -replace '^Microsoft ', '')), @('Usuário', $env:USERNAME))) {
-    $p = Horizontal; $p.Margin = '0,0,28,0'
-    [void]$p.Children.Add((Texto "$($par[0]): " 12 '#5B6B7F'))
-    [void]$p.Children.Add((Texto $par[1] 12 '#1B2A3A' 'SemiBold'))
-    [void]$faixa.Children.Add($p)
-}
-(Ctrl 'TxtVersao').Text = "v$versao"
-
-# Cabeçalho da tabela
-$cab = Ctrl 'Cabecalho'
-$cabGrade = Nova-GradeTabela
-$i = 0
-foreach ($t in 'UNIDADE', 'NOME', 'TIPO', 'SISTEMA OPERACIONAL', 'ESPAÇO', 'BACKUPS') {
-    Colocar $cabGrade (Texto $t 10.5 '#5B6B7F' 'SemiBold') $i; $i++
-}
-$cab.Children.Add($cabGrade) | Out-Null
 
 # ---------- Detecção de discos e sistemas ----------
 function Detectar-SO([string]$letra) {
@@ -389,11 +399,13 @@ $tiposLinuxGpt = @{
     '{0657fd6d-a4ab-43c4-84e5-0933c84b4f4f}' = 'swap'
 }
 $tiposLinuxMbr = @{ 131 = 'dados'; 142 = 'LVM'; 130 = 'swap' }
+$papelEn = @{ 'dados' = 'data'; 'raiz' = 'root'; 'LVM' = 'LVM'; 'home' = 'home' }
 
 function Get-Discos {
     @(Get-CimInstance Win32_LogicalDisk | Where-Object { ($_.DriveType -eq 2 -or $_.DriveType -eq 3) -and $_.Size } | Sort-Object DeviceID)
 }
 
+# Coleta os dados (o idioma só entra na hora de desenhar)
 function Get-Dispositivos {
     $lista = New-Object System.Collections.ArrayList
     $particoes = @(Get-Partition -ErrorAction SilentlyContinue)
@@ -403,12 +415,12 @@ function Get-Dispositivos {
     foreach ($d in Get-Discos) {
         $letra = $d.DeviceID
         $part = $particoes | Where-Object { $_.DriveLetter -and "$($_.DriveLetter):" -eq $letra } | Select-Object -First 1
-        $tipo = if ($letra -eq $env:SystemDrive) { 'Sistema' } elseif ($d.DriveType -eq 2) { 'Removível' } else { 'Interno' }
-        if ($part -and $discosFisicos.ContainsKey([int]$part.DiskNumber) -and "$($discosFisicos[[int]$part.DiskNumber].BusType)" -eq 'USB') { $tipo = 'USB' }
+        $tipo = if ($letra -eq $env:SystemDrive) { 'sistema' } elseif ($d.DriveType -eq 2) { 'removivel' } else { 'interno' }
+        if ($part -and $discosFisicos.ContainsKey([int]$part.DiskNumber) -and "$($discosFisicos[[int]$part.DiskNumber].BusType)" -eq 'USB') { $tipo = 'usb' }
         [void]$lista.Add([pscustomobject]@{
-            Letra = $letra; Nome = $(if ($d.VolumeName) { $d.VolumeName } elseif ($letra -eq $env:SystemDrive) { 'Windows' } else { 'Sem nome' })
-            Tipo = $tipo; FS = $d.FileSystem; Total = [double]$d.Size; Livre = [double]$d.FreeSpace
-            SO = (Detectar-SO $letra); Acessivel = $true
+            Letra = $letra; Rotulo = $d.VolumeName; Tipo = $tipo; FS = $d.FileSystem
+            Total = [double]$d.Size; Livre = [double]$d.FreeSpace
+            SO = (Detectar-SO $letra); Acessivel = $true; Disco = -1; Particao = -1; Papel = ''
         })
     }
 
@@ -420,9 +432,9 @@ function Get-Dispositivos {
         elseif ($p.MbrType -and $tiposLinuxMbr.ContainsKey([int]$p.MbrType)) { $papel = $tiposLinuxMbr[[int]$p.MbrType] }
         if (-not $papel -or $papel -eq 'swap') { continue }
         [void]$lista.Add([pscustomobject]@{
-            Letra = '—'; Nome = "Disco $($p.DiskNumber), partição $($p.PartitionNumber)"
-            Tipo = 'Linux'; FS = "Linux ($papel)"; Total = [double]$p.Size; Livre = -1
+            Letra = '—'; Rotulo = ''; Tipo = 'linux'; FS = ''; Total = [double]$p.Size; Livre = -1
             SO = @{ Nome = 'Linux'; Familia = 'linux' }; Acessivel = $false
+            Disco = $p.DiskNumber; Particao = $p.PartitionNumber; Papel = $papel
         })
     }
     return $lista
@@ -437,6 +449,16 @@ function Get-Backups {
     }) | Sort-Object LastWriteTime -Descending
 }
 
+function Nome-Tipo([string]$t) {
+    switch ($t) {
+        'sistema'   { L 'Sistema' 'System' }
+        'removivel' { L 'Removível' 'Removable' }
+        'usb'       { 'USB' }
+        'linux'     { L 'Partição' 'Partition' }
+        default     { L 'Interno' 'Internal' }
+    }
+}
+
 # ---------- Linha da tabela ----------
 function Nova-Linha($dev, [int]$qtdBackups, [bool]$ultima) {
     $borda = New-Object Windows.Controls.Border
@@ -448,14 +470,21 @@ function Nova-Linha($dev, [int]$qtdBackups, [bool]$ultima) {
 
     # Unidade
     $u = Horizontal
-    $corIcone = if ($dev.Tipo -eq 'USB') { '#1F6FB2' } elseif ($dev.Tipo -eq 'Linux') { '#B4690E' } else { '#5B6B7F' }
+    $corIcone = if ($dev.Tipo -eq 'usb') { '#1F6FB2' } elseif ($dev.Tipo -eq 'linux') { '#B4690E' } else { '#5B6B7F' }
     [void]$u.Children.Add((Icone 0xEDA2 15 $corIcone))
-    $tl = Texto "  $($dev.Letra)" 12.5 '#1B2A3A' 'SemiBold'
-    [void]$u.Children.Add($tl)
+    [void]$u.Children.Add((Texto "  $($dev.Letra)" 12.5 '#1B2A3A' 'SemiBold'))
     Colocar $g $u 0
 
-    Colocar $g (Texto $dev.Nome) 1
-    Colocar $g (Texto $(if ($dev.Tipo -eq 'Linux') { 'Partição' } else { "$($dev.Tipo) · $($dev.FS)" }) 12 '#5B6B7F') 2
+    # Nome
+    if ($dev.Tipo -eq 'linux') { $nome = (L 'Disco {0}, partição {1}' 'Disk {0}, partition {1}') -f $dev.Disco, $dev.Particao }
+    elseif ($dev.Rotulo) { $nome = $dev.Rotulo }
+    elseif ($dev.Tipo -eq 'sistema') { $nome = 'Windows' }
+    else { $nome = L 'Sem nome' 'Unnamed' }
+    Colocar $g (Texto $nome) 1
+
+    # Tipo
+    $tipoTexto = if ($dev.Tipo -eq 'linux') { Nome-Tipo 'linux' } else { "$(Nome-Tipo $dev.Tipo) · $($dev.FS)" }
+    Colocar $g (Texto $tipoTexto 12 '#5B6B7F') 2
 
     # Sistema operacional
     $so = Horizontal
@@ -468,7 +497,7 @@ function Nova-Linha($dev, [int]$qtdBackups, [bool]$ultima) {
     } else {
         $ponto.Fill = Cor '#A3AEBB'
         [void]$so.Children.Add($ponto)
-        [void]$so.Children.Add((Texto 'Nenhum sistema' 12 '#8A97A8'))
+        [void]$so.Children.Add((Texto (L 'Nenhum sistema' 'No system') 12 '#8A97A8'))
     }
     Colocar $g $so 3
 
@@ -490,7 +519,7 @@ function Nova-Linha($dev, [int]$qtdBackups, [bool]$ultima) {
         $cheio.Background = Cor $(if ($pct -ge 90) { '#C0392B' } elseif ($pct -ge 75) { '#C77700' } else { '#1F6FB2' })
         [void]$bg.Children.Add($cheio); $trilho.Child = $bg
         [void]$esp.Children.Add($trilho)
-        $txt = Texto ('{0:N1} GB livres de {1:N1} GB' -f ($dev.Livre / 1GB), ($dev.Total / 1GB)) 11 '#5B6B7F'
+        $txt = Texto ((L '{0:N1} GB livres de {1:N1} GB' '{0:N1} GB free of {1:N1} GB') -f ($dev.Livre / 1GB), ($dev.Total / 1GB)) 11 '#5B6B7F'
         $txt.Margin = '0,4,0,0'
         [void]$esp.Children.Add($txt)
         Colocar $g $esp 4
@@ -513,10 +542,10 @@ function Nova-Linha($dev, [int]$qtdBackups, [bool]$ultima) {
     $aviso = $null
     if (-not $dev.Acessivel) {
         $aviso = @(0xE946, '#8A5A00', '#FFF8E6', '#F0D9A8',
-                   'Partição de Linux: o Windows não consegue ler este dispositivo. Para fazer o backup dele, use o script linux/backup.sh no próprio Linux.')
+                   (L 'Partição de Linux: o Windows não consegue ler este dispositivo. Para fazer o backup dele, use o script linux/backup.sh no próprio Linux.' 'Linux partition: Windows cannot read this device. To back it up, use the linux/backup.sh script on Linux itself.'))
     } elseif (-not $dev.SO) {
         $aviso = @(0xE946, '#4A5A6E', '#F3F5F8', '#DDE3EA',
-                   'Neste dispositivo não há nenhum sistema operacional, então não é possível fazer backup de sistema a partir dele. Ele pode ser usado para guardar backups.')
+                   (L 'Neste dispositivo não há nenhum sistema operacional, então não é possível fazer backup de sistema a partir dele. Ele pode ser usado para guardar backups.' 'There is no operating system on this device, so a system backup cannot be made from it. It can be used to store backups.'))
     }
     if ($aviso) {
         $caixa = New-Object Windows.Controls.Border
@@ -535,11 +564,11 @@ function Nova-Linha($dev, [int]$qtdBackups, [bool]$ultima) {
     return $borda
 }
 
-function Atualizar {
+# Desenha a tabela e o último backup com os dados já coletados
+function Desenhar {
     $lista = Ctrl 'ListaDiscos'
     $lista.Children.Clear()
-    $script:backups = Get-Backups
-    $devs = @(Get-Dispositivos)
+    $devs = @($script:dispositivos)
     for ($i = 0; $i -lt $devs.Count; $i++) {
         $d = $devs[$i]
         $qtd = if ($d.Acessivel) { @($script:backups | Where-Object { $_.FullName.StartsWith($d.Letra) }).Count } else { 0 }
@@ -552,54 +581,119 @@ function Atualizar {
         $extra = ''
         $resumo = Join-Path $b.FullName 'RESUMO.txt'
         if (Test-Path -LiteralPath $resumo) {
-            $linha = Get-Content -LiteralPath $resumo -Encoding UTF8 | Where-Object { $_ -like 'Tamanho:*' } | Select-Object -First 1
-            if ($linha) { $extra = '   ·   ' + $linha.Replace('Tamanho:', '').Trim() }
-        } else { $extra = '   ·   incompleto ou em andamento' }
+            $linha = Get-Content -LiteralPath $resumo -Encoding UTF8 | Where-Object { $_ -match '^(Tamanho|Size):' } | Select-Object -First 1
+            if ($linha) { $extra = '   ·   ' + ($linha -replace '^(Tamanho|Size):', '').Trim() }
+        } else { $extra = '   ·   ' + (L 'incompleto ou em andamento' 'incomplete or in progress') }
         $origem = Join-Path $b.FullName '00_Info\origem.txt'
-        if ((Test-Path -LiteralPath $origem) -and ((Get-Content -LiteralPath $origem -TotalCount 1) -match 'linux')) { $extra += '   ·   feito no Linux' }
+        if ((Test-Path -LiteralPath $origem) -and ((Get-Content -LiteralPath $origem -TotalCount 1) -match 'linux')) { $extra += '   ·   ' + (L 'feito no Linux' 'made on Linux') }
         $u.Text = '{0}   ·   {1:dd/MM/yyyy HH:mm}{2}' -f $b.FullName, $b.LastWriteTime, $extra
         $u.Foreground = Cor '#1B2A3A'
     } else {
-        $u.Text = 'Nenhum backup encontrado nos dispositivos conectados.'
+        $u.Text = L 'Nenhum backup encontrado nos dispositivos conectados.' 'No backup found on the connected devices.'
         $u.Foreground = Cor '#8A97A8'
     }
+}
+
+function Atualizar {
+    $script:backups = Get-Backups
+    $script:dispositivos = Get-Dispositivos
     $script:assinatura = (Get-Discos | ForEach-Object DeviceID) -join ','
+    Desenhar
+}
+
+# ---------- Idioma ----------
+function Aplicar-Idioma {
+    $janela.Title = L 'Backup e Migração' 'Backup and Migration'
+    (Ctrl 'TxtTitulo').Text       = L 'Backup e Migração' 'Backup and Migration'
+    (Ctrl 'TxtSubtitulo').Text    = L 'Backup e migração de estações de trabalho' 'Workstation backup and migration'
+    (Ctrl 'TxtAcoes').Text        = L 'AÇÕES' 'ACTIONS'
+    (Ctrl 'TxtBackupTitulo').Text = L 'Fazer backup' 'Back up'
+    (Ctrl 'TxtBackupDesc').Text   = L 'Salva arquivos, configurações, redes Wi-Fi e a lista de programas desta estação.' 'Saves files, settings, Wi-Fi networks and the program list of this workstation.'
+    (Ctrl 'TxtRestTitulo').Text   = L 'Restaurar backup' 'Restore backup'
+    (Ctrl 'TxtRestDesc').Text     = L 'Transfere o backup para esta estação e reinstala os programas automaticamente.' 'Transfers the backup to this workstation and reinstalls the programs automatically.'
+    (Ctrl 'TxtDispositivos').Text = L 'DISPOSITIVOS DE ARMAZENAMENTO' 'STORAGE DEVICES'
+    (Ctrl 'TxtAtualizar').Text    = L 'Atualizar' 'Refresh'
+    (Ctrl 'TxtUltimoRotulo').Text = L 'ÚLTIMO BACKUP' 'LATEST BACKUP'
+    (Ctrl 'TxtPasta').Text        = L 'Abrir backups' 'Open backups'
+    (Ctrl 'TxtGuia').Text         = L 'Guia rápido' 'Quick guide'
+    (Ctrl 'TxtRegistro').Text     = L 'Ver registro' 'View log'
+    (Ctrl 'TxtVersao').Text       = "v$versao"
+
+    # Faixa de informações da estação
+    $faixa = Ctrl 'FaixaInfo'
+    $faixa.Children.Clear()
+    foreach ($par in @(@((L 'Estação' 'Workstation'), $env:COMPUTERNAME), @((L 'Sistema' 'System'), ($sistema.Caption -replace '^Microsoft ', '')), @((L 'Usuário' 'User'), $env:USERNAME))) {
+        $p = Horizontal; $p.Margin = '0,0,28,0'
+        [void]$p.Children.Add((Texto "$($par[0]): " 12 '#5B6B7F'))
+        [void]$p.Children.Add((Texto $par[1] 12 '#1B2A3A' 'SemiBold'))
+        [void]$faixa.Children.Add($p)
+    }
+
+    # Cabeçalho da tabela
+    $cab = Ctrl 'Cabecalho'
+    $cab.Children.Clear()
+    $cabGrade = Nova-GradeTabela
+    $i = 0
+    foreach ($t in (L 'UNIDADE' 'DRIVE'), (L 'NOME' 'NAME'), (L 'TIPO' 'TYPE'), (L 'SISTEMA OPERACIONAL' 'OPERATING SYSTEM'), (L 'ESPAÇO' 'SPACE'), 'BACKUPS') {
+        Colocar $cabGrade (Texto $t 10.5 '#5B6B7F' 'SemiBold') $i; $i++
+    }
+    [void]$cab.Children.Add($cabGrade)
+
+    # Botões PT / EN: o selecionado fica destacado
+    foreach ($par in @(@('BtnPT', 'pt'), @('BtnEN', 'en'))) {
+        $b = Ctrl $par[0]
+        if ($script:idioma -eq $par[1]) { $b.Background = Cor '#1F6FB2'; $b.Foreground = Cor '#FFFFFF' }
+        else { $b.Background = Cor '#00000000'; $b.Foreground = Cor '#9FB3C8' }
+    }
+
+    if ($script:dispositivos) { Desenhar }
+}
+
+function Trocar-Idioma([string]$novo) {
+    if ($novo -eq $script:idioma) { return }
+    $script:idioma = $novo
+    Set-Idioma $novo
+    Aplicar-Idioma
+    Status (L 'Idioma: Português' 'Language: English')
 }
 
 # ---------- Ações ----------
 function Rodar([string]$arquivo, [string]$nome) {
     $caminho = Join-Path $PSScriptRoot $arquivo
-    if (-not (Test-Path -LiteralPath $caminho)) { Status "Arquivo $arquivo não encontrado." '#C0392B'; return }
+    if (-not (Test-Path -LiteralPath $caminho)) { Status ((L 'Arquivo {0} não encontrado.' 'File {0} not found.') -f $arquivo) '#C0392B'; return }
     try {
-        Start-Process powershell.exe -Verb RunAs -ErrorAction Stop -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$caminho`""
-        Status "$nome iniciado em outra janela. Siga as instruções nela." '#2E7D5B'
+        Start-Process powershell.exe -Verb RunAs -ErrorAction Stop -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$caminho`" -Idioma $script:idioma"
+        Status ((L '{0} iniciado em outra janela. Siga as instruções nela.' '{0} started in another window. Follow the instructions there.') -f $nome) '#2E7D5B'
     } catch {
-        Status 'Permissão de administrador negada.' '#C77700'
+        Status (L 'Permissão de administrador negada.' 'Administrator permission denied.') '#C77700'
     }
 }
 
-(Ctrl 'BtnBackup').Add_Click({ Rodar 'backup.ps1' 'Backup' })
+(Ctrl 'BtnBackup').Add_Click({ Rodar 'backup.ps1' (L 'Backup' 'Backup') })
 (Ctrl 'BtnRestaurar').Add_Click({
     if (-not $script:backups.Count) {
-        $r = [Windows.MessageBox]::Show("Nenhum backup foi encontrado nos dispositivos conectados.`n`nConecte o disco com a pasta BACKUP_PC e clique em Atualizar.`n`nAbrir a restauração mesmo assim?",
-                                        'Restaurar backup', 'YesNo', 'Warning')
+        $r = [Windows.MessageBox]::Show((L "Nenhum backup foi encontrado nos dispositivos conectados.`n`nConecte o disco com a pasta BACKUP_PC e clique em Atualizar.`n`nAbrir a restauração mesmo assim?" "No backup was found on the connected devices.`n`nConnect the disk with the BACKUP_PC folder and click Refresh.`n`nOpen the restore anyway?"),
+                                        (L 'Restaurar backup' 'Restore backup'), 'YesNo', 'Warning')
         if ($r -ne 'Yes') { return }
     }
-    Rodar 'restaurar.ps1' 'Restauração'
+    Rodar 'restaurar.ps1' (L 'Restauração' 'Restore')
 })
 (Ctrl 'BtnPasta').Add_Click({
     if ($script:backups.Count) { Start-Process explorer.exe $script:backups[0].Parent.FullName }
-    else { Status 'Nenhum backup encontrado ainda.' '#C77700' }
+    else { Status (L 'Nenhum backup encontrado ainda.' 'No backup found yet.') '#C77700' }
 })
 (Ctrl 'BtnGuia').Add_Click({
-    $g = Join-Path $PSScriptRoot 'LEIA-ME.txt'
-    if (Test-Path -LiteralPath $g) { Start-Process notepad.exe "`"$g`"" } else { Status 'LEIA-ME.txt não encontrado.' '#C0392B' }
+    $g = Join-Path $PSScriptRoot (L 'LEIA-ME.txt' 'README-EN.txt')
+    if (-not (Test-Path -LiteralPath $g)) { $g = Join-Path $PSScriptRoot 'LEIA-ME.txt' }
+    if (Test-Path -LiteralPath $g) { Start-Process notepad.exe "`"$g`"" } else { Status (L 'Guia não encontrado.' 'Guide not found.') '#C0392B' }
 })
 (Ctrl 'BtnRegistro').Add_Click({
     $reg = Get-ChildItem -LiteralPath $PSScriptRoot -Filter 'ultima-execucao-*.txt' -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-    if ($reg) { Start-Process notepad.exe "`"$($reg.FullName)`"" } else { Status 'Nenhum registro ainda: rode um backup primeiro.' }
+    if ($reg) { Start-Process notepad.exe "`"$($reg.FullName)`"" } else { Status (L 'Nenhum registro ainda: rode um backup primeiro.' 'No log yet: run a backup first.') }
 })
-(Ctrl 'BtnAtualizar').Add_Click({ Atualizar; Status 'Lista atualizada.' })
+(Ctrl 'BtnAtualizar').Add_Click({ Atualizar; Status (L 'Lista atualizada.' 'List refreshed.') })
+(Ctrl 'BtnPT').Add_Click({ Trocar-Idioma 'pt' })
+(Ctrl 'BtnEN').Add_Click({ Trocar-Idioma 'en' })
 (Ctrl 'BtnFechar').Add_Click({ $janela.Close() })
 (Ctrl 'BtnMinimizar').Add_Click({ $janela.WindowState = 'Minimized' })
 (Ctrl 'BarraTitulo').Add_MouseLeftButtonDown({ $janela.DragMove() })
@@ -609,11 +703,12 @@ $timer = New-Object Windows.Threading.DispatcherTimer
 $timer.Interval = [TimeSpan]::FromSeconds(3)
 $timer.Add_Tick({
     $agora = (Get-Discos | ForEach-Object DeviceID) -join ','
-    if ($agora -ne $script:assinatura) { Atualizar; Status 'Dispositivos atualizados.' }
+    if ($agora -ne $script:assinatura) { Atualizar; Status (L 'Dispositivos atualizados.' 'Devices refreshed.') }
 })
 
+Aplicar-Idioma
 Atualizar
-Status 'Pronto.'
+Status (L 'Pronto.' 'Ready.')
 $timer.Start()
 [void]$janela.ShowDialog()
 $timer.Stop()
