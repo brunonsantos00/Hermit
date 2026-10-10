@@ -1,4 +1,10 @@
-# Windows Backup and Migration
+# Hermit
+
+**Backup e migração de computadores Windows e Linux** · [English version](README.en.md)
+
+> **Aviso:** este projeto foi transferido para cá. Ele começou no repositório
+> [`brunonsantos00/windows-backup-and-migration`](https://github.com/brunonsantos00/windows-backup-and-migration),
+> que não recebe mais atualizações. Todo o histórico de commits foi trazido junto.
 
 Scripts para fazer **backup completo de um computador** em um HD externo e **restaurar tudo em outro computador**: arquivos, configurações, redes Wi-Fi e a reinstalação automática dos programas.
 
@@ -16,6 +22,7 @@ Não precisa instalar nada: os scripts usam só ferramentas que já vêm no sist
 - **Reinstalação automática dos programas**: `winget` no Windows; `apt`/`dnf`, Flatpak e Snap no Linux. O que não der pra instalar vai para uma lista na Área de Trabalho.
 - **Migração Windows → Linux**: o restaurar do Linux aceita backups feitos no Windows (arquivos pessoais e redes Wi-Fi).
 - **Painel gráfico no Windows**: janela com botões, lista de dispositivos com o sistema de cada um, espaço livre e backups encontrados.
+- **Português e inglês** em tudo: painel, scripts e menus.
 
 ## Início rápido
 
@@ -27,6 +34,16 @@ Os iniciadores ficam na raiz do projeto e usam o mesmo ícone:
 | Linux | **`BackupMigracao.sh`** (dois cliques ou `bash BackupMigracao.sh`) | Abre o menu com backup e restauração. A opção 3 cria um atalho com ícone no menu de aplicativos |
 
 > O `.exe` não é assinado digitalmente. Na primeira vez o Windows pode mostrar o aviso "O Windows protegeu o computador": clique em **Mais informações → Executar assim mesmo**. O código-fonte está em [`launcher/`](launcher/) e dá pra compilar de novo com `launcher/compilar.ps1`.
+
+## Idioma
+
+| Onde | Como trocar |
+|---|---|
+| Painel do Windows | Botão **PT \| EN** no canto superior da janela. A escolha fica salva e vale também para os scripts |
+| Menu do Linux | Opção **[5]** do `BackupMigracao.sh` |
+| Scripts direto | `-Idioma pt` / `-Idioma en` no Windows, `--idioma pt` / `--idioma en` no Linux |
+
+Na primeira vez, o idioma é escolhido pelo idioma do sistema: português se o sistema estiver em português, inglês nos outros casos. As pastas dentro do backup têm os mesmos nomes nos dois idiomas, então um backup feito em um idioma restaura normalmente no outro.
 
 ## Windows
 
@@ -101,9 +118,20 @@ windows/
 ├── painel.ps1              janela gráfica (WPF)
 ├── backup.ps1              faz o backup
 ├── restaurar.ps1           restaura o backup
-└── LEIA-ME.txt             guia rápido
+├── idioma.ps1              textos em português e inglês
+└── LEIA-ME.txt / README-EN.txt   guia rápido
 linux/
 ├── backup.sh               faz o backup
 ├── restaurar.sh            restaura o backup (também aceita backups do Windows)
-└── LEIA-ME.txt             guia rápido
+├── idioma.sh               textos em português e inglês
+└── LEIA-ME.txt / README-EN.txt   guia rápido
 ```
+
+## Branches
+
+| Branch | Conteúdo |
+|---|---|
+| `main` | Versão estável. Recebe as outras branches por merge |
+| `feature/windows` | Scripts e painel do Windows |
+| `feature/linux` | Scripts do Linux |
+| `feature/launcher` | Ícone e iniciadores (`.exe` e `.sh`) |
