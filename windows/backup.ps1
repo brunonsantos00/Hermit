@@ -91,6 +91,29 @@ function Copiar($t, [string]$raizDestino) {
     }
 }
 
+# Descobre se um disco tem sistema operacional instalado. Retorna o nome do sistema ou $null.
+function Detectar-SO([string]$letra) {
+    if ($letra -eq $env:SystemDrive) { return ((Get-CimInstance Win32_OperatingSystem).Caption -replace '^Microsoft ', '') }
+    $kernel = "$letra\Windows\System32\ntoskrnl.exe"
+    if (Test-Path -LiteralPath $kernel) {
+        $v = (Get-Item -LiteralPath $kernel).VersionInfo
+        if ($v.FileMajorPart -ge 10) { if ($v.FileBuildPart -ge 22000) { $n = 'Windows 11' } else { $n = 'Windows 10' } }
+        elseif ($v.FileMajorPart -eq 6 -and $v.FileMinorPart -eq 3) { $n = 'Windows 8.1' }
+        elseif ($v.FileMajorPart -eq 6 -and $v.FileMinorPart -eq 2) { $n = 'Windows 8' }
+        elseif ($v.FileMajorPart -eq 6 -and $v.FileMinorPart -eq 1) { $n = 'Windows 7' }
+        else { $n = 'Windows' }
+        return "$n (build $($v.FileBuildPart))"
+    }
+    $osRelease = "$letra\etc\os-release"
+    if (Test-Path -LiteralPath $osRelease) {
+        $nome = (Get-Content -LiteralPath $osRelease -ErrorAction SilentlyContinue | Where-Object { $_ -like 'PRETTY_NAME=*' } | Select-Object -First 1)
+        if ($nome) { return ($nome -replace '^PRETTY_NAME=', '').Trim('"') }
+        return 'Linux'
+    }
+    if (Test-Path -LiteralPath "$letra\System\Library\CoreServices\SystemVersion.plist") { return 'macOS' }
+    return $null
+}
+
 function Tipo-Disco($d) {
     try {
         $bus = (Get-Partition -DriveLetter $d.DeviceID.TrimEnd(':') -ErrorAction Stop | Get-Disk -ErrorAction Stop).BusType
@@ -117,6 +140,9 @@ function Escolher-Destino([string]$padrao, [string[]]$proibidos) {
         if ($d.DeviceID -eq $padrao) { $idxPadrao = $i; $marca = '  <- onde estão os scripts' }
         Msg ('   [{0}] {1}  {2,-18} livre: {3,9} de {4,9}  {5,-6} {6}{7}' -f ($i + 1), $d.DeviceID, $d.VolumeName,
              (GB $d.FreeSpace), (GB $d.Size), $d.FileSystem, (Tipo-Disco $d), $marca)
+        $so = Detectar-SO $d.DeviceID
+        if ($so) { Write-Host "         Sistema instalado: $so" -ForegroundColor DarkYellow }
+        else     { Write-Host '         Sem sistema operacional (bom para guardar backups)' -ForegroundColor DarkGray }
     }
     $dica = if ($idxPadrao -ge 0) { " (ENTER = $($idxPadrao + 1))" } else { '' }
     do {
@@ -196,6 +222,9 @@ $outrosDiscos = @(Get-CimInstance Win32_LogicalDisk -Filter 'DriveType=3' | Wher
 $discosEscolhidos = @()
 foreach ($d in $outrosDiscos) {
     Write-Host ''
+    $so = Detectar-SO $d.DeviceID
+    if ($so) { Aviso "O disco $($d.DeviceID) tem outro sistema instalado ($so). Só os arquivos dele podem ser copiados, não o sistema." }
+    else     { Msg "O disco $($d.DeviceID) não tem nenhum sistema operacional: só arquivos." }
     if (Perguntar ('Copiar o disco {0} ({1}) inteiro? Usado: {2}' -f $d.DeviceID, $d.VolumeName, (GB ($d.Size - $d.FreeSpace)))) { $discosEscolhidos += $d.DeviceID }
 }
 
@@ -296,6 +325,8 @@ Windows         : $($os.Caption) $($os.Version)
 Chave Windows   : $(if ($chave) { $chave } else { '(não encontrada na BIOS)' })
 Memória         : $([math]::Round($cs.TotalPhysicalMemory / 1GB)) GB
 "@ | Out-File "$dInfo\sistema.txt" -Encoding utf8
+# Marca de origem: o restaurar usa para saber se o backup veio do Windows ou do Linux
+@('windows', $os.Caption, $os.Version) | Out-File "$dInfo\origem.txt" -Encoding utf8
 Get-Printer -ErrorAction SilentlyContinue | Select-Object Name, DriverName, PortName | Format-Table -AutoSize | Out-String -Width 300 | Out-File "$dInfo\impressoras.txt" -Encoding utf8
 & reg.exe export 'HKCU\Environment' "$dInfo\variaveis-ambiente-usuario.reg" /y | Out-Null
 Ok 'Informações salvas.'
