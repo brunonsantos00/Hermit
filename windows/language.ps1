@@ -1,13 +1,13 @@
 ﻿<#
-    Idioma (português / inglês) usado pelo painel e pelos scripts.
-    Uso:  . (Join-Path $PSScriptRoot 'idioma.ps1')
+    Language (Portuguese / English) used by the panel and the scripts.
+    Usage:  . (Join-Path $PSScriptRoot 'language.ps1')
           $script:idioma = Get-Idioma $Idioma
           Msg (L 'Olá' 'Hello')
 #>
 
-$script:arquivoIdioma = Join-Path $env:LOCALAPPDATA 'BackupMigracao\idioma.txt'
+$script:arquivoIdioma = Join-Path $env:LOCALAPPDATA 'Hermit\language.txt'
 
-# Ordem: parâmetro -Idioma > variável BM_IDIOMA > escolha salva no painel > idioma do Windows
+# Order: -Idioma parameter > BM_IDIOMA variable > choice saved in the panel > Windows language
 function Get-Idioma([string]$pedido) {
     foreach ($v in $pedido, $env:BM_IDIOMA) { if ($v -eq 'pt' -or $v -eq 'en') { return $v } }
     try {
@@ -27,9 +27,9 @@ function Set-Idioma([string]$v) {
     } catch {}
 }
 
-# Escolhe o texto do idioma atual
+# Picks the text for the current language
 function L([string]$pt, [string]$en) { if ($script:idioma -eq 'en') { return $en } return $pt }
 
-# Resposta de sim/não nos dois idiomas
+# Yes/no answer in both languages
 function Eh-Sim([string]$r) { return ($r -eq 'S' -or $r -eq 'Y') }
 function Eh-Nao([string]$r) { return ($r -eq 'N') }

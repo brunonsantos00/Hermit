@@ -1,15 +1,15 @@
 ﻿<#
-    RESTAURAR O BACKUP NO COMPUTADOR NOVO / RESTORE THE BACKUP ON THE NEW COMPUTER
+    HERMIT - RESTORE THE BACKUP ON THE NEW COMPUTER
     ------------------------------------------------------------------------------
-    Como usar: ligue o disco do backup no computador novo e dê dois cliques em "2-RESTAURAR-BACKUP.bat".
-    Idioma: -Idioma pt | en (padrão: o escolhido no painel, ou o idioma do Windows)
+    Usage: connect the backup disk to the new computer and double-click "2-RESTORE-BACKUP.bat".
+    Language: -Idioma pt | en (default: the one chosen in the panel, or the Windows language)
 #>
 param([string]$Idioma)
 
-. (Join-Path $PSScriptRoot 'idioma.ps1')
+. (Join-Path $PSScriptRoot 'language.ps1')
 $script:idioma = Get-Idioma $Idioma
 
-# ---------- Rodar como administrador ----------
+# ---------- Run as administrator ----------
 $principal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
 if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
     try {
@@ -23,11 +23,11 @@ if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administra
     exit
 }
 
-# Registro de tudo que aparece na tela (para descobrir problemas)
-$script:transcript = Join-Path $PSScriptRoot ("ultima-execucao-" + [IO.Path]::GetFileNameWithoutExtension($PSCommandPath) + ".txt")
+# Log of everything shown on screen (for troubleshooting)
+$script:transcript = Join-Path $PSScriptRoot ("last-run-" + [IO.Path]::GetFileNameWithoutExtension($PSCommandPath) + ".txt")
 try { Start-Transcript -Path $script:transcript -Force | Out-Null } catch {}
 
-# Se acontecer qualquer erro grave, mostra na tela e NÃO fecha a janela
+# On any serious error, show it and do NOT close the window
 trap {
     Write-Host ''
     Write-Host "  [X] $(L 'ERRO' 'ERROR'): $($_.Exception.Message)" -ForegroundColor Red
@@ -62,7 +62,7 @@ function Sair { Write-Host ''; try { Stop-Transcript | Out-Null } catch {}; Read
 Add-Type -Name Energia -Namespace Win32 -MemberDefinition '[DllImport("kernel32.dll")] public static extern uint SetThreadExecutionState(uint esFlags);'
 [Win32.Energia]::SetThreadExecutionState([uint32]'0x80000001') | Out-Null
 
-$script:arquivoLog = "$env:SystemRoot\Temp\restaurar-backup-log.txt"
+$script:arquivoLog = "$env:SystemRoot\Temp\restore-backup-log.txt"
 
 function Copiar {
     param([string]$Origem, [string]$Destino, [string[]]$ExcluirPastas = @(), [switch]$NaoSobrescreverMaisNovos)
@@ -84,13 +84,13 @@ function Get-ProgramasInstalados {
         Select-Object DisplayName, DisplayVersion, Publisher |
         Sort-Object DisplayName -Unique
 }
-# Nome sem versão/arquitetura, para comparar "7-Zip 23.01 (x64)" com "7-Zip 24.08 (x64)"
+# Name without version/architecture, to match "7-Zip 23.01 (x64)" with "7-Zip 24.08 (x64)"
 function Normalizar([string]$n) { (($n -replace '\(.*?\)', '' -replace 'v?\d+(\.\d+)+', '' -replace '\s+', ' ').Trim()).ToLower() }
 
 # =====================================================================
 Titulo (L 'RESTAURAR BACKUP' 'RESTORE BACKUP')
 
-# Procura backups em todos os discos conectados
+# Looks for backups on all connected disks
 $backups = @(Get-CimInstance Win32_LogicalDisk | Where-Object { $_.DriveType -eq 2 -or $_.DriveType -eq 3 } | ForEach-Object {
     foreach ($nomePasta in 'BACKUP_PC', 'BACKUP_NOTEBOOK') {
         $b = "$($_.DeviceID)\$nomePasta"
@@ -103,18 +103,18 @@ else { $bk = $backups[(Escolher (L 'Qual backup restaurar?' 'Which backup do you
 $discoHD = Split-Path -Qualifier $bk
 Ok "Backup: $bk"
 
-# Backup feito no Linux: programas e configurações não servem no Windows
+# Backup made on Linux: programs and settings do not work on Windows
 $origem = "$bk\00_Info\origem.txt"
 if ((Test-Path -LiteralPath $origem) -and ((Get-Content -LiteralPath $origem -TotalCount 1) -match 'linux')) {
     Erro (L 'Este backup foi feito em um computador com LINUX.' 'This backup was made on a LINUX computer.')
     Msg  (L 'Programas e configurações do Linux não funcionam no Windows, então não é possível restaurar por aqui.' 'Linux programs and settings do not work on Windows, so it cannot be restored here.')
-    Msg  (L 'Use o script linux/restaurar.sh em um computador com Linux,' 'Use the linux/restaurar.sh script on a Linux computer,')
+    Msg  (L 'Use o script linux/restore.sh em um computador com Linux,' 'Use the linux/restore.sh script on a Linux computer,')
     Msg  (L "ou copie os seus arquivos manualmente de: $bk\02_Usuarios\<usuário>\Home" "or copy your files manually from: $bk\02_Usuarios\<user>\Home")
     Sair
 }
 if (Test-Path "$bk\00_Info\sistema.txt") { Get-Content "$bk\00_Info\sistema.txt" | Select-Object -First 6 | ForEach-Object { Msg "   $_" } }
 
-# ---------- Verificar se cabe neste computador ----------
+# ---------- Check if it fits on this computer ----------
 Msg (L 'Calculando o tamanho do backup...' 'Calculating the backup size...')
 $falso = Join-Path $env:TEMP ('medir_' + [guid]::NewGuid().ToString('N'))
 $saida = & robocopy.exe $bk $falso /E /L /BYTES /NFL /NDL /NJH /R:0 /W:0
@@ -122,7 +122,7 @@ $tamBk = [int64]0
 $linha = $saida | Where-Object { $_ -match '^\s*Bytes\s*:\s*\d+' } | Select-Object -Last 1
 if ($linha -match 'Bytes\s*:\s*(\d+)') { $tamBk = [int64]$Matches[1] }
 $livreSis = [int64](Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='$env:SystemDrive'").FreeSpace
-$necessario = [int64]($tamBk * 1.05) + 5GB    # margem + espaço para os programas que vão ser instalados
+$necessario = [int64]($tamBk * 1.05) + 5GB    # margin + room for the programs that will be installed
 Msg ('{0} : {1:N1} GB' -f (L 'Tamanho do backup' 'Backup size      '), ($tamBk / 1GB))
 Msg ('{0} {1} : {2:N1} GB' -f (L 'Livre no disco' 'Free on disk  '), $env:SystemDrive, ($livreSis / 1GB))
 if ($livreSis -ge $necessario) {
@@ -133,7 +133,7 @@ if ($livreSis -ge $necessario) {
     if (-not (Perguntar (L 'Continuar mesmo assim?' 'Continue anyway?'))) { Sair }
 }
 
-# ---------- Escolha do usuário (de onde -> para onde) ----------
+# ---------- User selection (from -> to) ----------
 $script:usuarioBk = $null
 $script:alvo = $null
 function Selecionar-Usuario {
@@ -150,7 +150,7 @@ function Selecionar-Usuario {
     return $true
 }
 
-# ---------- Etapas ----------
+# ---------- Steps ----------
 function Restaurar-WiFi {
     Titulo (L 'Redes Wi-Fi' 'Wi-Fi networks')
     $xmls = @(Get-ChildItem "$bk\03_WiFi\*.xml" -ErrorAction SilentlyContinue)
@@ -179,7 +179,7 @@ function Restaurar-Programas {
         Ok (L 'Instalação automática finalizada.' 'Automatic installation finished.')
     } else { Aviso (L 'Este backup não tem lista do winget.' 'This backup has no winget list.') }
 
-    # Compara com a lista completa do computador antigo
+    # Compares with the full list from the old computer
     $csv = "$bk\01_Programas\programas-instalados.csv"
     if (Test-Path $csv) {
         $atuais = @(Get-ProgramasInstalados | ForEach-Object { Normalizar $_.DisplayName })
@@ -202,7 +202,7 @@ function Restaurar-Arquivos {
     $perfilBk = "$script:usuarioBk\Perfil"
     if (-not (Test-Path -LiteralPath $perfilBk)) { Aviso (L 'Sem arquivos de perfil no backup.' 'No profile files in the backup.'); return }
 
-    # Pastas conhecidas vão para o local real delas no computador novo (pode ser dentro do OneDrive)
+    # Known folders go to their real location on the new computer (it may be inside OneDrive)
     $mapa = [ordered]@{ 'Desktop' = 'Desktop'; 'Documents' = 'Personal'; 'Downloads' = '{374DE290-123F-4565-9164-39C4925E467B}'
                         'Pictures' = 'My Pictures'; 'Music' = 'My Music'; 'Videos' = 'My Video'; 'Favorites' = 'Favorites' }
     $usf = Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders' -ErrorAction SilentlyContinue
@@ -216,7 +216,7 @@ function Restaurar-Arquivos {
         $excluir += $orig
     }
 
-    # Pastas do OneDrive antigo vão para uma pasta separada (para não bagunçar o OneDrive novo)
+    # Old OneDrive folders go to a separate folder (so the new OneDrive is not messed up)
     $pastaOneDrive = L 'OneDrive do computador antigo' 'OneDrive from the old computer'
     foreach ($od in @(Get-ChildItem -LiteralPath $perfilBk -Directory -Filter 'OneDrive*' -ErrorAction SilentlyContinue)) {
         Copiar $od.FullName (Join-Path $script:alvo "$pastaOneDrive\$($od.Name)") -NaoSobrescreverMaisNovos
@@ -224,7 +224,7 @@ function Restaurar-Arquivos {
         Aviso (L "Arquivos do OneDrive antigo ficaram em '$script:alvo\$pastaOneDrive' (os da nuvem voltam ao entrar no OneDrive)." "Old OneDrive files were placed in '$script:alvo\$pastaOneDrive' (cloud files come back when you sign in to OneDrive).")
     }
 
-    # Todo o resto da pasta do usuário
+    # Everything else in the user folder
     Copiar $perfilBk $script:alvo -ExcluirPastas $excluir -NaoSobrescreverMaisNovos
     Ok (L 'Arquivos restaurados.' 'Files restored.')
 }
@@ -270,14 +270,14 @@ function Restaurar-OutrasPastas {
     Ok (L 'Outras pastas restauradas.' 'Other folders restored.')
 }
 
-# ---------- Backup 2.0: pastas dos programas ----------
+# ---------- Backup 2.0: program folders ----------
 $script:temProgramas = Test-Path -LiteralPath "$bk\05_Programas"
 
-# Copia a pasta de um programa. Se ele já existe aqui, os arquivos são SUBSTITUÍDOS pelos do backup.
+# Copies a program folder. If it already exists here, its files are REPLACED by the ones from the backup.
 function Copiar-Programa([string]$origem, [string]$destino) {
     $nome = Split-Path $destino -Leaf
     if (Test-Path -LiteralPath $destino) {
-        # Arquivos em uso não podem ser substituídos: fecha o programa antes
+        # Files in use cannot be replaced: close the program first
         $abertos = @(Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.Path -and $_.Path.StartsWith($destino.TrimEnd('\') + '\', [StringComparison]::OrdinalIgnoreCase) })
         if ($abertos.Count) {
             Aviso ((L '{0} está aberto ({1}).' '{0} is open ({1}).') -f $nome, (($abertos | Select-Object -ExpandProperty Name -Unique) -join ', '))
@@ -290,7 +290,7 @@ function Copiar-Programa([string]$origem, [string]$destino) {
         Write-Host "  [$(L 'novo' 'new')] $nome" -ForegroundColor Green
         $script:novos++
     }
-    # /IS /IT: regrava até os arquivos que parecem iguais, para ficar exatamente como no backup
+    # /IS /IT: rewrites even files that look identical, so it ends up exactly like the backup
     $a = @($origem, $destino, '/E', '/IS', '/IT', '/XJ', '/COPY:DAT', '/DCOPY:T', '/R:1', '/W:1', '/MT:16', '/B', '/NP', '/NFL', '/NDL', '/NJH', '/NJS', "/UNILOG+:$script:arquivoLog")
     & robocopy.exe @a | Out-Null
     if ($LASTEXITCODE -ge 8) { Aviso ((L 'Alguns arquivos de {0} não foram copiados (log: {1}).' 'Some files of {0} were not copied (log: {1}).') -f $nome, $script:arquivoLog) }
@@ -311,7 +311,7 @@ function Restaurar-ProgramasCopiados {
         foreach ($prog in @(Get-ChildItem -LiteralPath $orig -Directory)) { Copiar-Programa $prog.FullName (Join-Path $par[1] $prog.Name) }
     }
 
-    # Programas instalados só para o usuário (AppData\Local\Programs)
+    # Programs installed only for the user (AppData\Local\Programs)
     $porUsuario = @(Get-ChildItem -LiteralPath $base -Directory -Filter 'Usuario_*' -ErrorAction SilentlyContinue)
     if ($porUsuario.Count -and (Selecionar-Usuario)) {
         $meu = $porUsuario | Where-Object { $_.Name -eq "Usuario_$(Split-Path $script:usuarioBk -Leaf)" } | Select-Object -First 1
@@ -319,7 +319,7 @@ function Restaurar-ProgramasCopiados {
         if ($meu) { foreach ($prog in @(Get-ChildItem -LiteralPath $meu.FullName -Directory)) { Copiar-Programa $prog.FullName (Join-Path $script:alvo "AppData\Local\Programs\$($prog.Name)") } }
     }
 
-    # Atalhos do Menu Iniciar e da Área de Trabalho pública
+    # Start Menu and public Desktop shortcuts
     Copiar "$base\MenuIniciar" "$env:ProgramData\Microsoft\Windows\Start Menu\Programs"
     Copiar "$base\AreaDeTrabalhoPublica" "$env:PUBLIC\Desktop"
 
@@ -340,7 +340,7 @@ while ($true) {
     Msg (L '[0] Sair' '[0] Exit')
     switch ((Read-Host "  $(L 'Opção' 'Option')").Trim()) {
         '1' { Restaurar-WiFi
-              # Backup 2.0: coloca as pastas dos programas de volta em vez de reinstalar
+              # Backup 2.0: puts the program folders back instead of reinstalling
               if ($script:temProgramas) { Restaurar-ProgramasCopiados } else { Restaurar-Programas }
               Restaurar-Arquivos; Restaurar-OutrasPastas; Restaurar-AppData
               Titulo (L 'TUDO PRONTO!' 'ALL DONE!'); Msg "Log: $script:arquivoLog"; Msg (L 'Reinicie o computador para finalizar.' 'Restart the computer to finish.') }
