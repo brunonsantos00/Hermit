@@ -1,20 +1,20 @@
 ﻿<#
-    COMPARADOR - janela que compara o backup com este computador
+    HERMIT COMPARE - window that compares the backup with this computer
     ------------------------------------------------------------
-    Mostra, de forma organizada, o que está no backup e não chegou neste computador.
-    Abra com "Comparador.exe" (na raiz do projeto). A comparação em si é feita pelo comparar.ps1.
+    Shows, in an organized way, what is in the backup but did not reach this computer.
+    Open it with "Hermit-Compare.exe" (project root). The comparison itself is done by compare.ps1.
 #>
 
 Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
 
 try {
     Add-Type -Namespace Win32 -Name Shell -MemberDefinition '[DllImport("shell32.dll")] public static extern int SetCurrentProcessExplicitAppUserModelID([MarshalAs(UnmanagedType.LPWStr)] string id);'
-    [void][Win32.Shell]::SetCurrentProcessExplicitAppUserModelID('BackupMigracao.Comparador')
+    [void][Win32.Shell]::SetCurrentProcessExplicitAppUserModelID('Hermit.Compare')
 } catch {}
 
-. (Join-Path $PSScriptRoot 'idioma.ps1')
+. (Join-Path $PSScriptRoot 'language.ps1')
 $script:idioma = Get-Idioma ''
-$limiteLinhas = 300     # arquivos mostrados por pasta (o resto fica no relatório)
+$limiteLinhas = 300     # files shown per folder (the rest is in the report)
 
 $xaml = @'
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -102,7 +102,7 @@ $xaml = @'
         <RowDefinition Height="Auto"/>
       </Grid.RowDefinitions>
 
-      <!-- Cabeçalho -->
+      <!-- Header -->
       <Border x:Name="BarraTitulo" Background="#0F2B46" CornerRadius="5,5,0,0" Padding="20,12,10,12">
         <Grid>
           <StackPanel Orientation="Horizontal">
@@ -122,7 +122,7 @@ $xaml = @'
         </Grid>
       </Border>
 
-      <!-- Escolhas -->
+      <!-- Choices -->
       <Border Grid.Row="1" Background="White" BorderBrush="#D5DCE5" BorderThickness="0,0,0,1" Padding="24,14">
         <Grid>
           <Grid.ColumnDefinitions>
@@ -150,9 +150,9 @@ $xaml = @'
         </Grid>
       </Border>
 
-      <!-- Corpo -->
+      <!-- Body -->
       <Grid Grid.Row="2" Margin="24,18,24,14">
-        <!-- Estado inicial / mensagens -->
+        <!-- Initial state / messages -->
         <StackPanel x:Name="PainelMensagem" VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="560">
           <TextBlock x:Name="IcoMensagem" Text="&#xE9D5;" FontFamily="Segoe MDL2 Assets" FontSize="40" Foreground="#A9BCD0" HorizontalAlignment="Center"/>
           <TextBlock x:Name="TxtMensagem" FontSize="16" FontWeight="SemiBold" Foreground="#1B2A3A" TextAlignment="Center" Margin="0,14,0,0" TextWrapping="Wrap"/>
@@ -161,7 +161,7 @@ $xaml = @'
                        Foreground="#1F6FB2" Background="#E4E9EF" BorderThickness="0"/>
         </StackPanel>
 
-        <!-- Resultado -->
+        <!-- Result -->
         <Grid x:Name="PainelResultado" Visibility="Collapsed">
           <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -194,7 +194,7 @@ $xaml = @'
         </Grid>
       </Grid>
 
-      <!-- Rodapé -->
+      <!-- Footer -->
       <Border Grid.Row="3" Background="#E9EDF2" BorderBrush="#D5DCE5" BorderThickness="0,1,0,0" CornerRadius="0,0,5,5" Padding="24,10">
         <Grid>
           <StackPanel Orientation="Horizontal">
@@ -232,13 +232,13 @@ catch {
     exit 1
 }
 function Ctrl([string]$nome) { $janela.FindName($nome) }
-$arquivoIcone = Join-Path (Split-Path $PSScriptRoot -Parent) 'assets\icone.ico'
+$arquivoIcone = Join-Path (Split-Path $PSScriptRoot -Parent) 'assets\icon.ico'
 if (Test-Path -LiteralPath $arquivoIcone) { try { $janela.Icon = [Windows.Media.Imaging.BitmapFrame]::Create((New-Object Uri $arquivoIcone)) } catch {} }
 
 $conversor = New-Object Windows.Media.BrushConverter
 function Cor([string]$hex) { $conversor.ConvertFromString($hex) }
 function Status([string]$texto, [string]$cor = '#5B6B7F') { $s = Ctrl 'TxtStatus'; $s.Text = $texto; $s.Foreground = Cor $cor }
-# Conta itens de uma lista vinda do JSON (lista vazia pode virar $null)
+# Counts items of a list coming from JSON (an empty list may become $null)
 function Cont($x) { @($x | Where-Object { $_ }).Count }
 function Tamanho([double]$b) { if ($b -lt 1MB) { '{0:N0} KB' -f [math]::Ceiling($b / 1KB) } elseif ($b -lt 1GB) { '{0:N1} MB' -f ($b / 1MB) } else { '{0:N2} GB' -f ($b / 1GB) } }
 function Texto([string]$t, [double]$tam = 12.5, [string]$cor = '#1B2A3A', [string]$peso = 'Normal') {
@@ -264,7 +264,7 @@ function Selo([string]$texto, [string]$fundo, [string]$borda, [string]$cor) {
     return $s
 }
 
-# ---------- Textos ----------
+# ---------- Texts ----------
 $janela.Title = L 'Comparador de backup' 'Backup comparison'
 (Ctrl 'TxtTitulo').Text = L 'Comparador de backup' 'Backup comparison'
 (Ctrl 'TxtSubtitulo').Text = L 'Mostra o que está no backup e não chegou neste computador' 'Shows what is in the backup but did not reach this computer'
@@ -287,7 +287,7 @@ function Mensagem([int]$icone, [string]$cor, [string]$t1, [string]$t2, [bool]$ca
     (Ctrl 'Progresso').Visibility = $(if ($carregando) { 'Visible' } else { 'Collapsed' })
 }
 
-# ---------- Backups e usuários ----------
+# ---------- Backups and users ----------
 function Get-Backups {
     @(Get-CimInstance Win32_LogicalDisk | Where-Object { $_.DriveType -eq 2 -or $_.DriveType -eq 3 } | ForEach-Object {
         foreach ($nomePasta in 'BACKUP_PC', 'BACKUP_NOTEBOOK') {
@@ -330,7 +330,7 @@ function Carregar-Usuarios {
     (Ctrl 'BtnPastaBackup').IsEnabled = [bool]$sel
 }
 
-# ---------- Desenhar o resultado ----------
+# ---------- Draw the result ----------
 function Cartao([int]$coluna, [int]$icone, [string]$cor, [string]$fundo, [string]$rotulo, [string]$numero, [string]$detalhe) {
     $b = New-Object Windows.Controls.Border
     $b.Background = Cor 'White'; $b.BorderBrush = Cor '#D5DCE5'; $b.BorderThickness = 1; $b.CornerRadius = 4
@@ -383,7 +383,7 @@ function Secao($item, [string]$filtro) {
     $caixa.Background = Cor 'White'; $caixa.BorderBrush = Cor '#D5DCE5'; $caixa.BorderThickness = 1; $caixa.CornerRadius = 4; $caixa.Margin = '0,0,0,10'
     $pilha = New-Object Windows.Controls.StackPanel
 
-    # Cabeçalho da seção (clique para abrir/fechar)
+    # Section header (click to expand/collapse)
     $cab = New-Object Windows.Controls.Grid
     Colunas $cab @('4', '*')
     $barra = New-Object Windows.Controls.Border; $barra.Background = Cor $cor; $barra.CornerRadius = $(if ($temDif) { '4,0,0,0' } else { '4,0,0,4' })
@@ -409,7 +409,7 @@ function Secao($item, [string]$filtro) {
     if ($temDif) { $cabBorda.Cursor = 'Hand' }
     [void]$pilha.Children.Add($cabBorda)
 
-    # Lista de arquivos
+    # File list
     if ($temDif) {
         $lista = New-Object Windows.Controls.StackPanel
         $todos = @($faltam | ForEach-Object { @{ F = $_; Falta = $true } }) + @($novos | ForEach-Object { @{ F = $_; Falta = $false } })
@@ -443,24 +443,24 @@ function Desenhar-Resultado {
     $filtro = (Ctrl 'TxtFiltro').Text.Trim()
     $lista = Ctrl 'ListaSecoes'
     $lista.Children.Clear()
-    # Pastas com diferença primeiro
+    # Folders with differences first
     $ordenados = @($d.Itens | Sort-Object @{ Expression = { -((Cont $_.Faltam) * 1000000 + (Cont $_.Novos)) } })
     foreach ($item in $ordenados) { $s = Secao $item $filtro; if ($s) { [void]$lista.Children.Add($s) } }
     if (-not $lista.Children.Count) { [void]$lista.Children.Add((Texto (L 'Nenhum arquivo com esse nome.' 'No file with that name.') 12.5 '#8A97A8')) }
 
     (Ctrl 'PainelMensagem').Visibility = 'Collapsed'
     (Ctrl 'PainelResultado').Visibility = 'Visible'
-    # Volta a lista para o topo depois que ela terminar de ser desenhada
+    # Scrolls the list back to the top after it finishes rendering
     [void]$janela.Dispatcher.BeginInvoke([Action]{ (Ctrl 'Rolagem').ScrollToTop() }, [Windows.Threading.DispatcherPriority]::ContextIdle)
 }
 
-# ---------- Comparar (roda o comparar.ps1 escondido e lê o resultado) ----------
+# ---------- Compare (runs compare.ps1 hidden and reads the result) ----------
 function Comparar {
     $sel = (Ctrl 'CmbBackup').SelectedItem
     $usuario = (Ctrl 'CmbUsuario').SelectedItem
     if (-not $sel -or -not $usuario) { return }
     $script:json = Join-Path $env:TEMP ('hermit_comparacao_' + [guid]::NewGuid().ToString('N') + '.json')
-    $arg = "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$(Join-Path $PSScriptRoot 'comparar.ps1')`" -Backup `"$($sel.Tag)`" -Usuario `"$usuario`" -SaidaJson `"$script:json`" -Idioma $script:idioma"
+    $arg = "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$(Join-Path $PSScriptRoot 'compare.ps1')`" -Backup `"$($sel.Tag)`" -Usuario `"$usuario`" -SaidaJson `"$script:json`" -Idioma $script:idioma"
     if ((Ctrl 'ChkConfig').IsChecked) { $arg += ' -IncluirConfiguracoes' }
     $script:processo = Start-Process powershell.exe -ArgumentList $arg -WindowStyle Hidden -PassThru
     foreach ($n in 'BtnComparar', 'CmbBackup', 'CmbUsuario', 'ChkConfig', 'BtnRelatorio', 'BtnCopiar') { (Ctrl $n).IsEnabled = $false }
@@ -480,7 +480,7 @@ $script:espera.Add_Tick({
     $script:espera.Stop()
     foreach ($n in 'BtnComparar', 'CmbBackup', 'CmbUsuario', 'ChkConfig') { (Ctrl $n).IsEnabled = $true }
     if (-not (Test-Path -LiteralPath $script:json)) {
-        Mensagem 0xE783 '#C0392B' (L 'A comparação falhou' 'The comparison failed') ((L 'Veja o registro em {0}' 'See the log at {0}') -f (Join-Path $PSScriptRoot 'ultima-execucao-comparar.txt'))
+        Mensagem 0xE783 '#C0392B' (L 'A comparação falhou' 'The comparison failed') ((L 'Veja o registro em {0}' 'See the log at {0}') -f (Join-Path $PSScriptRoot 'last-run-compare.txt'))
         Status (L 'Erro na comparação.' 'Comparison error.') '#C0392B'
         return
     }
@@ -494,7 +494,7 @@ $script:espera.Add_Tick({
     else { Status ((L 'Comparação concluída em {0}.' 'Comparison finished in {0}.') -f $tempo) }
 })
 
-# ---------- Eventos ----------
+# ---------- Events ----------
 (Ctrl 'CmbBackup').Add_SelectionChanged({ Carregar-Usuarios })
 (Ctrl 'CmbUsuario').Add_SelectionChanged({ (Ctrl 'BtnComparar').IsEnabled = [bool]((Ctrl 'CmbBackup').SelectedItem -and (Ctrl 'CmbUsuario').SelectedIndex -ge 0) })
 (Ctrl 'BtnComparar').Add_Click({ Comparar })
@@ -505,9 +505,9 @@ $script:espera.Add_Tick({
 (Ctrl 'BtnRelatorio').Add_Click({ if ($script:resultado -and (Test-Path -LiteralPath $script:resultado.Relatorio)) { Start-Process notepad.exe "`"$($script:resultado.Relatorio)`"" } })
 (Ctrl 'BtnPastaBackup').Add_Click({ $sel = (Ctrl 'CmbBackup').SelectedItem; if ($sel) { Start-Process explorer.exe "`"$($sel.Tag)`"" } })
 (Ctrl 'BtnCopiar').Add_Click({
-    # Abre o comparar.ps1 no modo normal: ele compara de novo e pergunta antes de copiar
+    # Opens compare.ps1 in normal mode: it compares again and asks before copying
     $sel = (Ctrl 'CmbBackup').SelectedItem; $usuario = (Ctrl 'CmbUsuario').SelectedItem
-    $arg = "-NoProfile -ExecutionPolicy Bypass -File `"$(Join-Path $PSScriptRoot 'comparar.ps1')`" -Backup `"$($sel.Tag)`" -Usuario `"$usuario`" -Idioma $script:idioma"
+    $arg = "-NoProfile -ExecutionPolicy Bypass -File `"$(Join-Path $PSScriptRoot 'compare.ps1')`" -Backup `"$($sel.Tag)`" -Usuario `"$usuario`" -Idioma $script:idioma"
     if ((Ctrl 'ChkConfig').IsChecked) { $arg += ' -IncluirConfiguracoes' }
     Start-Process powershell.exe -ArgumentList $arg
     Status (L 'A cópia foi aberta em outra janela: confirme lá.' 'The copy was opened in another window: confirm it there.') '#2E7D5B'
@@ -516,7 +516,7 @@ $script:espera.Add_Tick({
 (Ctrl 'BtnMinimizar').Add_Click({ $janela.WindowState = 'Minimized' })
 (Ctrl 'BarraTitulo').Add_MouseLeftButtonDown({ $janela.DragMove() })
 
-# Atualiza a lista de backups quando um disco é conectado ou removido
+# Refreshes the backup list when a disk is connected or removed
 $timerDiscos = New-Object Windows.Threading.DispatcherTimer
 $timerDiscos.Interval = [TimeSpan]::FromSeconds(3)
 $timerDiscos.Add_Tick({

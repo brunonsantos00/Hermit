@@ -1,19 +1,19 @@
 ﻿<#
-    PAINEL - Backup e Migração / Backup and Migration
+    HERMIT PANEL - Backup and Migration
     -------------------------------------------------
-    Janela com botões para fazer e restaurar o backup sem precisar mexer no terminal.
-    Abra com "BackupMigracao.exe" (na raiz) ou "0-ABRIR-PAINEL.bat".
+    Window with buttons to back up and restore without using the terminal.
+    Open it with "Hermit.exe" (project root) or "0-OPEN-PANEL.bat".
 #>
 
 Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
 
-# Identidade própria na barra de tarefas (senão o Windows mostra o ícone do PowerShell)
+# Own taskbar identity (otherwise Windows shows the PowerShell icon)
 try {
     Add-Type -Namespace Win32 -Name Shell -MemberDefinition '[DllImport("shell32.dll")] public static extern int SetCurrentProcessExplicitAppUserModelID([MarshalAs(UnmanagedType.LPWStr)] string id);'
-    [void][Win32.Shell]::SetCurrentProcessExplicitAppUserModelID('BackupMigracao.Painel')
+    [void][Win32.Shell]::SetCurrentProcessExplicitAppUserModelID('Hermit.Panel')
 } catch {}
 
-. (Join-Path $PSScriptRoot 'idioma.ps1')
+. (Join-Path $PSScriptRoot 'language.ps1')
 $script:idioma = Get-Idioma ''
 
 $versao = '2.1'
@@ -31,7 +31,7 @@ $xaml = @'
       <Setter Property="FontWeight" Value="SemiBold"/>
     </Style>
 
-    <!-- Cartão de ação (backup / restaurar) -->
+    <!-- Action card (backup / restore) -->
     <Style x:Key="CartaoAcao" TargetType="Button">
       <Setter Property="Cursor" Value="Hand"/>
       <Setter Property="Tag" Value="#1F6FB2"/>
@@ -62,7 +62,7 @@ $xaml = @'
       </Setter>
     </Style>
 
-    <!-- Botão do rodapé -->
+    <!-- Footer button -->
     <Style x:Key="BotaoRodape" TargetType="Button">
       <Setter Property="Foreground" Value="#1B2A3A"/>
       <Setter Property="FontSize" Value="12.5"/>
@@ -85,7 +85,7 @@ $xaml = @'
       </Setter>
     </Style>
 
-    <!-- Botão tipo link -->
+    <!-- Link-style button -->
     <Style x:Key="BotaoLink" TargetType="Button">
       <Setter Property="Foreground" Value="#1F6FB2"/>
       <Setter Property="FontSize" Value="12"/>
@@ -104,7 +104,7 @@ $xaml = @'
       </Setter>
     </Style>
 
-    <!-- Botões do seletor de idioma -->
+    <!-- Language selector buttons -->
     <Style x:Key="BotaoIdioma" TargetType="Button">
       <Setter Property="Foreground" Value="#C9D6E3"/>
       <Setter Property="Background" Value="Transparent"/>
@@ -127,7 +127,7 @@ $xaml = @'
       </Setter>
     </Style>
 
-    <!-- Botões da barra de título -->
+    <!-- Title bar buttons -->
     <Style x:Key="BotaoJanela" TargetType="Button">
       <Setter Property="Foreground" Value="#C9D6E3"/>
       <Setter Property="Width" Value="44"/>
@@ -160,7 +160,7 @@ $xaml = @'
         <RowDefinition Height="Auto"/>
       </Grid.RowDefinitions>
 
-      <!-- Cabeçalho -->
+      <!-- Header -->
       <Border x:Name="BarraTitulo" Background="#0F2B46" CornerRadius="5,5,0,0" Padding="20,12,10,12">
         <Grid>
           <StackPanel Orientation="Horizontal">
@@ -187,12 +187,12 @@ $xaml = @'
         </Grid>
       </Border>
 
-      <!-- Faixa de informações da estação -->
+      <!-- Workstation info strip -->
       <Border Grid.Row="1" Background="White" BorderBrush="#D5DCE5" BorderThickness="0,0,0,1" Padding="24,10">
         <StackPanel x:Name="FaixaInfo" Orientation="Horizontal"/>
       </Border>
 
-      <!-- Corpo -->
+      <!-- Body -->
       <StackPanel Grid.Row="2" Margin="24,20,24,20">
         <TextBlock x:Name="TxtAcoes" Style="{StaticResource Rotulo}"/>
         <Grid Margin="0,8,0,0">
@@ -241,7 +241,7 @@ $xaml = @'
           </Button>
         </Grid>
 
-        <!-- Dispositivos -->
+        <!-- Devices -->
         <Grid Margin="0,22,0,8">
           <TextBlock x:Name="TxtDispositivos" Style="{StaticResource Rotulo}" VerticalAlignment="Center"/>
           <Button x:Name="BtnAtualizar" Style="{StaticResource BotaoLink}" HorizontalAlignment="Right">
@@ -262,7 +262,7 @@ $xaml = @'
           </StackPanel>
         </Border>
 
-        <!-- Último backup -->
+        <!-- Latest backup -->
         <TextBlock x:Name="TxtUltimoRotulo" Style="{StaticResource Rotulo}" Margin="0,22,0,8"/>
         <Border Background="White" BorderBrush="#D5DCE5" BorderThickness="1" CornerRadius="4" Padding="16,12">
           <Grid>
@@ -277,7 +277,7 @@ $xaml = @'
         </Border>
       </StackPanel>
 
-      <!-- Rodapé -->
+      <!-- Footer -->
       <Border Grid.Row="3" Background="#E9EDF2" BorderBrush="#D5DCE5" BorderThickness="0,1,0,0" CornerRadius="0,0,5,5" Padding="24,10">
         <Grid>
           <StackPanel Orientation="Horizontal">
@@ -319,8 +319,8 @@ try {
 }
 function Ctrl([string]$nome) { $janela.FindName($nome) }
 
-# Ícone da janela (aparece na barra de tarefas)
-$arquivoIcone = Join-Path (Split-Path $PSScriptRoot -Parent) 'assets\icone.ico'
+# Window icon (shown on the taskbar)
+$arquivoIcone = Join-Path (Split-Path $PSScriptRoot -Parent) 'assets\icon.ico'
 if (Test-Path -LiteralPath $arquivoIcone) {
     try { $janela.Icon = [Windows.Media.Imaging.BitmapFrame]::Create((New-Object Uri $arquivoIcone)) } catch {}
 }
@@ -332,7 +332,7 @@ function Status([string]$texto, [string]$cor = '#5B6B7F') {
     $s = Ctrl 'TxtStatus'; $s.Text = $texto; $s.Foreground = Cor $cor
 }
 
-# ---------- Elementos simples ----------
+# ---------- Simple elements ----------
 function Texto([string]$t, [double]$tam = 12.5, [string]$cor = '#1B2A3A', [string]$peso = 'Normal') {
     $b = New-Object Windows.Controls.TextBlock
     $b.Text = $t; $b.FontSize = $tam; $b.Foreground = Cor $cor; $b.FontWeight = $peso
@@ -353,7 +353,7 @@ function Colocar($grid, $elemento, [int]$coluna, [int]$linha = 0, [int]$span = 1
     [void]$grid.Children.Add($elemento)
 }
 
-# Colunas da tabela de dispositivos (cabeçalho e linhas usam as mesmas larguras)
+# Device table columns (header and rows use the same widths)
 $colunas = '70', '*', '100', '230', '190', '80'
 function Nova-GradeTabela {
     $g = New-Object Windows.Controls.Grid
@@ -368,7 +368,7 @@ function Nova-GradeTabela {
 
 $sistema = Get-CimInstance Win32_OperatingSystem
 
-# ---------- Detecção de discos e sistemas ----------
+# ---------- Disk and system detection ----------
 function Detectar-SO([string]$letra) {
     if ($letra -eq $env:SystemDrive) { return @{ Nome = ($sistema.Caption -replace '^Microsoft ', ''); Familia = 'windows' } }
     $kernel = "$letra\Windows\System32\ntoskrnl.exe"
@@ -405,7 +405,7 @@ function Get-Discos {
     @(Get-CimInstance Win32_LogicalDisk | Where-Object { ($_.DriveType -eq 2 -or $_.DriveType -eq 3) -and $_.Size } | Sort-Object DeviceID)
 }
 
-# Coleta os dados (o idioma só entra na hora de desenhar)
+# Collects the data (the language is only applied when drawing)
 function Get-Dispositivos {
     $lista = New-Object System.Collections.ArrayList
     $particoes = @(Get-Partition -ErrorAction SilentlyContinue)
@@ -424,7 +424,7 @@ function Get-Dispositivos {
         })
     }
 
-    # Partições de Linux não têm letra no Windows, mas dá para reconhecer pelo tipo da partição
+    # Linux partitions have no drive letter on Windows, but can be recognized by the partition type
     foreach ($p in $particoes) {
         $gpt = "$($p.GptType)".ToLower()
         $papel = $null
@@ -459,7 +459,7 @@ function Nome-Tipo([string]$t) {
     }
 }
 
-# ---------- Linha da tabela ----------
+# ---------- Table row ----------
 function Nova-Linha($dev, [int]$qtdBackups, [bool]$ultima) {
     $borda = New-Object Windows.Controls.Border
     $borda.Padding = '16,10'
@@ -468,25 +468,25 @@ function Nova-Linha($dev, [int]$qtdBackups, [bool]$ultima) {
     $g = Nova-GradeTabela
     foreach ($h in 'Auto', 'Auto') { $r = New-Object Windows.Controls.RowDefinition; $r.Height = 'Auto'; $g.RowDefinitions.Add($r) }
 
-    # Unidade
+    # Drive
     $u = Horizontal
     $corIcone = if ($dev.Tipo -eq 'usb') { '#1F6FB2' } elseif ($dev.Tipo -eq 'linux') { '#B4690E' } else { '#5B6B7F' }
     [void]$u.Children.Add((Icone 0xEDA2 15 $corIcone))
     [void]$u.Children.Add((Texto "  $($dev.Letra)" 12.5 '#1B2A3A' 'SemiBold'))
     Colocar $g $u 0
 
-    # Nome
+    # Name
     if ($dev.Tipo -eq 'linux') { $nome = (L 'Disco {0}, partição {1}' 'Disk {0}, partition {1}') -f $dev.Disco, $dev.Particao }
     elseif ($dev.Rotulo) { $nome = $dev.Rotulo }
     elseif ($dev.Tipo -eq 'sistema') { $nome = 'Windows' }
     else { $nome = L 'Sem nome' 'Unnamed' }
     Colocar $g (Texto $nome) 1
 
-    # Tipo
+    # Type
     $tipoTexto = if ($dev.Tipo -eq 'linux') { Nome-Tipo 'linux' } else { "$(Nome-Tipo $dev.Tipo) · $($dev.FS)" }
     Colocar $g (Texto $tipoTexto 12 '#5B6B7F') 2
 
-    # Sistema operacional
+    # Operating system
     $so = Horizontal
     $ponto = New-Object Windows.Shapes.Ellipse
     $ponto.Width = 8; $ponto.Height = 8; $ponto.Margin = '0,0,8,0'
@@ -501,7 +501,7 @@ function Nova-Linha($dev, [int]$qtdBackups, [bool]$ultima) {
     }
     Colocar $g $so 3
 
-    # Espaço
+    # Space
     if ($dev.Livre -ge 0) {
         $esp = New-Object Windows.Controls.StackPanel
         $esp.VerticalAlignment = 'Center'; $esp.Margin = '0,0,16,0'
@@ -538,7 +538,7 @@ function Nova-Linha($dev, [int]$qtdBackups, [bool]$ultima) {
         Colocar $g (Texto '—' 12 '#A3AEBB') 5
     }
 
-    # Mensagem embaixo da linha
+    # Message below the row
     $aviso = $null
     if (-not $dev.Acessivel) {
         $aviso = @(0xE946, '#8A5A00', '#FFF8E6', '#F0D9A8',
@@ -564,7 +564,7 @@ function Nova-Linha($dev, [int]$qtdBackups, [bool]$ultima) {
     return $borda
 }
 
-# Desenha a tabela e o último backup com os dados já coletados
+# Draws the table and the latest backup from the collected data
 function Desenhar {
     $lista = Ctrl 'ListaDiscos'
     $lista.Children.Clear()
@@ -601,7 +601,7 @@ function Atualizar {
     Desenhar
 }
 
-# ---------- Idioma ----------
+# ---------- Language ----------
 function Aplicar-Idioma {
     $janela.Title = L 'Backup e Migração' 'Backup and Migration'
     (Ctrl 'TxtTitulo').Text       = L 'Backup e Migração' 'Backup and Migration'
@@ -619,7 +619,7 @@ function Aplicar-Idioma {
     (Ctrl 'TxtRegistro').Text     = L 'Ver registro' 'View log'
     (Ctrl 'TxtVersao').Text       = "v$versao"
 
-    # Faixa de informações da estação
+    # Workstation info strip
     $faixa = Ctrl 'FaixaInfo'
     $faixa.Children.Clear()
     foreach ($par in @(@((L 'Estação' 'Workstation'), $env:COMPUTERNAME), @((L 'Sistema' 'System'), ($sistema.Caption -replace '^Microsoft ', '')), @((L 'Usuário' 'User'), $env:USERNAME))) {
@@ -629,7 +629,7 @@ function Aplicar-Idioma {
         [void]$faixa.Children.Add($p)
     }
 
-    # Cabeçalho da tabela
+    # Table header
     $cab = Ctrl 'Cabecalho'
     $cab.Children.Clear()
     $cabGrade = Nova-GradeTabela
@@ -639,7 +639,7 @@ function Aplicar-Idioma {
     }
     [void]$cab.Children.Add($cabGrade)
 
-    # Botões PT / EN: o selecionado fica destacado
+    # PT / EN buttons: the selected one is highlighted
     foreach ($par in @(@('BtnPT', 'pt'), @('BtnEN', 'en'))) {
         $b = Ctrl $par[0]
         if ($script:idioma -eq $par[1]) { $b.Background = Cor '#1F6FB2'; $b.Foreground = Cor '#FFFFFF' }
@@ -657,7 +657,7 @@ function Trocar-Idioma([string]$novo) {
     Status (L 'Idioma: Português' 'Language: English')
 }
 
-# ---------- Ações ----------
+# ---------- Actions ----------
 function Rodar([string]$arquivo, [string]$nome) {
     $caminho = Join-Path $PSScriptRoot $arquivo
     if (-not (Test-Path -LiteralPath $caminho)) { Status ((L 'Arquivo {0} não encontrado.' 'File {0} not found.') -f $arquivo) '#C0392B'; return }
@@ -676,19 +676,19 @@ function Rodar([string]$arquivo, [string]$nome) {
                                         (L 'Restaurar backup' 'Restore backup'), 'YesNo', 'Warning')
         if ($r -ne 'Yes') { return }
     }
-    Rodar 'restaurar.ps1' (L 'Restauração' 'Restore')
+    Rodar 'restore.ps1' (L 'Restauração' 'Restore')
 })
 (Ctrl 'BtnPasta').Add_Click({
     if ($script:backups.Count) { Start-Process explorer.exe $script:backups[0].Parent.FullName }
     else { Status (L 'Nenhum backup encontrado ainda.' 'No backup found yet.') '#C77700' }
 })
 (Ctrl 'BtnGuia').Add_Click({
-    $g = Join-Path $PSScriptRoot (L 'LEIA-ME.txt' 'README-EN.txt')
-    if (-not (Test-Path -LiteralPath $g)) { $g = Join-Path $PSScriptRoot 'LEIA-ME.txt' }
+    $g = Join-Path $PSScriptRoot (L 'README-PT.txt' 'README-EN.txt')
+    if (-not (Test-Path -LiteralPath $g)) { $g = Join-Path $PSScriptRoot 'README-PT.txt' }
     if (Test-Path -LiteralPath $g) { Start-Process notepad.exe "`"$g`"" } else { Status (L 'Guia não encontrado.' 'Guide not found.') '#C0392B' }
 })
 (Ctrl 'BtnRegistro').Add_Click({
-    $reg = Get-ChildItem -LiteralPath $PSScriptRoot -Filter 'ultima-execucao-*.txt' -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+    $reg = Get-ChildItem -LiteralPath $PSScriptRoot -Filter 'last-run-*.txt' -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
     if ($reg) { Start-Process notepad.exe "`"$($reg.FullName)`"" } else { Status (L 'Nenhum registro ainda: rode um backup primeiro.' 'No log yet: run a backup first.') }
 })
 (Ctrl 'BtnAtualizar').Add_Click({ Atualizar; Status (L 'Lista atualizada.' 'List refreshed.') })
@@ -698,7 +698,7 @@ function Rodar([string]$arquivo, [string]$nome) {
 (Ctrl 'BtnMinimizar').Add_Click({ $janela.WindowState = 'Minimized' })
 (Ctrl 'BarraTitulo').Add_MouseLeftButtonDown({ $janela.DragMove() })
 
-# Detecta sozinho quando um disco é conectado ou removido
+# Detects automatically when a disk is connected or removed
 $timer = New-Object Windows.Threading.DispatcherTimer
 $timer.Interval = [TimeSpan]::FromSeconds(3)
 $timer.Add_Tick({

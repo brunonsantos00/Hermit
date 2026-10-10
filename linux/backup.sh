@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # =====================================================================
-#  BACKUP DO COMPUTADOR (LINUX) - Ubuntu, Debian e Fedora
-#  COMPUTER BACKUP (LINUX)      - Ubuntu, Debian and Fedora
+#  HERMIT - COMPUTER BACKUP (LINUX)
+#  Ubuntu, Debian and Fedora
 #  ------------------------------------------------------
-#  Uso / Usage:   bash backup.sh [--idioma pt|en]
-#  O backup é salvo em <DISCO>/BACKUP_PC/<NOME-DO-PC>_<data>/
+#  Usage:   bash backup.sh [--idioma pt|en]
+#  The backup is saved to <DISK>/BACKUP_PC/<PC-NAME>_<date>/
 # =====================================================================
 
 set -o pipefail
@@ -12,7 +12,7 @@ set -o pipefail
 SCRIPT="$(readlink -f "$0")"
 SCRIPT_DIR="$(dirname "$SCRIPT")"
 
-# ---------- Idioma ----------
+# ---------- Language ----------
 PEDIDO=""
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -21,27 +21,27 @@ while [ $# -gt 0 ]; do
         *) shift ;;
     esac
 done
-# shellcheck source=idioma.sh
-source "$SCRIPT_DIR/idioma.sh"
+# shellcheck source=language.sh
+source "$SCRIPT_DIR/language.sh"
 IDIOMA="$(detectar_idioma "$PEDIDO")"
 
-# ---------- Rodar como administrador ----------
+# ---------- Run as administrator ----------
 if [ "$EUID" -ne 0 ]; then
     L "Este script precisa de permissão de administrador (digite sua senha)." "This script needs administrator permission (type your password)."; echo
     exec sudo bash "$SCRIPT" --idioma "$IDIOMA"
 fi
 
-# Impede o computador de suspender durante o backup
+# Keeps the computer from sleeping during the backup
 if [ -z "${BACKUP_INIBIDO:-}" ] && command -v systemd-inhibit >/dev/null 2>&1 && systemd-inhibit --list >/dev/null 2>&1; then
     export BACKUP_INIBIDO=1
     exec systemd-inhibit --what=sleep:idle:handle-lid-switch --who="Backup" --why="Backup" bash "$SCRIPT" --idioma "$IDIOMA"
 fi
 
-# Registro de tudo que aparece na tela (para descobrir problemas)
-TRANSCRIPT="$SCRIPT_DIR/ultima-execucao-backup.txt"
+# Log of everything shown on screen (for troubleshooting)
+TRANSCRIPT="$SCRIPT_DIR/last-run-backup.txt"
 : > "$TRANSCRIPT" 2>/dev/null && exec > >(tee -a "$TRANSCRIPT") 2>&1
 
-# ---------- Aparência ----------
+# ---------- Appearance ----------
 AZUL=$'\e[36m'; VERDE=$'\e[32m'; AMARELO=$'\e[33m'; VERMELHO=$'\e[31m'; CINZA=$'\e[90m'; N=$'\e[0m'
 LINHA="$(printf '=%.0s' {1..70})"
 titulo()    { echo; echo "${AZUL}${LINHA}${N}"; echo "${AZUL}  $*${N}"; echo "${AZUL}${LINHA}${N}"; }
@@ -49,7 +49,7 @@ ok()        { echo "${VERDE}  [OK] $*${N}"; }
 aviso()     { echo "${AMARELO}  [!]  $*${N}"; }
 erro()      { echo "${VERMELHO}  [X]  $*${N}"; }
 msg()       { echo "  $*"; }
-# Lê uma resposta; se a entrada acabar (sem teclado), encerra em vez de perguntar para sempre
+# Reads an answer; if input ends (no keyboard), exits instead of asking forever
 entrada()   { read -r -p "$@" || { echo; erro "$(L 'Sem resposta (a entrada foi encerrada). Saindo.' 'No answer (input was closed). Exiting.')"; exit 1; }; }
 perguntar() {
     local r sn; sn="$(L '(S/N)' '(Y/N)')"
@@ -58,8 +58,8 @@ perguntar() {
 sair()      { echo; read -r -p "  $(L 'Pressione ENTER para fechar' 'Press ENTER to close') " _; exit "${1:-0}"; }
 gb()        { awk -v b="${1:-0}" 'BEGIN { printf "%.1f GB", b / 1073741824 }'; }
 
-# ---------- Sistema atual ----------
-ler_os_release() {   # $1 = arquivo os-release; $2 = campo. Lê sem executar o arquivo.
+# ---------- Current system ----------
+ler_os_release() {   # $1 = os-release file; $2 = field. Reads it without executing the file.
     grep -m1 "^$2=" "$1" 2>/dev/null | cut -d= -f2- | tr -d '"'
 }
 DISTRO_ID="$(ler_os_release /etc/os-release ID)"
@@ -74,7 +74,7 @@ esac
 
 instalar() { case "$FAMILIA" in apt) apt-get install -y "$@" ;; dnf) dnf install -y "$@" ;; esac; }
 
-# Descobre se um ponto de montagem tem sistema operacional. Imprime o nome ou nada.
+# Finds out whether a mount point has an operating system. Prints its name or nothing.
 detectar_so() {
     local m="$1"
     if [ "$m" = "/" ]; then echo "$DISTRO_NOME ($(L 'este sistema' 'this system'))"; return; fi
@@ -85,11 +85,11 @@ detectar_so() {
     if [ -f "$m/System/Library/CoreServices/SystemVersion.plist" ]; then echo "macOS"; return; fi
 }
 
-# Discos montados que podem receber o backup (formato: caminho|dispositivo|sistema-de-arquivos)
+# Mounted disks that can receive the backup (format: path|device|filesystem)
 listar_discos() {
     findmnt -rn -o TARGET,SOURCE,FSTYPE -t ext4,ext3,ext2,xfs,btrfs,f2fs,vfat,exfat,ntfs,ntfs3,fuseblk,9p,drvfs 2>/dev/null |
     while read -r alvo origem fs; do
-        alvo="$(printf '%b' "$alvo")"     # findmnt troca espaços por \x20
+        alvo="$(printf '%b' "$alvo")"     # findmnt encodes spaces as \x20
         case "$alvo" in
             /|/boot|/boot/*|/efi|/home|/var|/var/*|/usr|/usr/*|/opt|/srv|/tmp|/snap/*|/mnt/wsl*|/usr/lib/wsl*) continue ;;
         esac
@@ -104,7 +104,7 @@ tipo_disco() {
     if [ -n "$pai" ] && [ "$(lsblk -dno TRAN "/dev/$pai" 2>/dev/null)" = "usb" ]; then L "USB/externo" "USB/external"; else L "interno" "internal"; fi
 }
 
-# Lista os discos e deixa escolher. Define DEST_MNT e DEST_FS.
+# Lists the disks and lets the user choose. Sets DEST_MNT and DEST_FS.
 escolher_destino() {
     local padrao="$1"; shift
     local proibidos=" $* " a o f i n r idx_padrao=-1
@@ -166,11 +166,11 @@ if ! command -v rsync >/dev/null 2>&1; then
 fi
 echo
 
-# ---------- 1. Onde salvar ----------
+# ---------- 1. Where to save ----------
 escolher_destino "$(findmnt -n -o TARGET --target "$SCRIPT_DIR" 2>/dev/null)"
 ok "$(L "Backup será salvo em $DEST_MNT" "Backup will be saved to $DEST_MNT")"
 
-# ---------- 2. O que copiar ----------
+# ---------- 2. What to copy ----------
 titulo "$(L 'O QUE VAI ENTRAR NO BACKUP' 'WHAT WILL BE BACKED UP')"
 
 mapfile -t USUARIOS < <(getent passwd | awk -F: '$3 >= 1000 && $3 < 60000 { print $1 ":" $6 }' |
@@ -199,7 +199,7 @@ for d in "${_outros[@]}"; do
     if perguntar "$(L "Copiar o disco $d inteiro? Usado: $(gb "$usado")" "Copy the whole disk $d? Used: $(gb "$usado")")"; then OUTROS+=("$d"); fi
 done
 
-# ---------- 3. Montar a lista de tarefas ----------
+# ---------- 3. Build the task list ----------
 T_GRUPO=(); T_ORIGEM=(); T_REL=(); T_FILTRO=(); T_BYTES=()
 nova_tarefa() { T_GRUPO+=("$1"); T_ORIGEM+=("$2"); T_REL+=("$3"); T_FILTRO+=("$4"); T_BYTES+=(0); }
 
@@ -209,11 +209,11 @@ EXCL_CONFIG=(--exclude='/.cache/' --exclude='/.local/share/Trash/' --exclude='/.
              --exclude='/.local/share/Steam/steamapps/common/' --exclude='/.var/app/*/cache/'
              --exclude='/.var/app/com.valvesoftware.Steam/.local/share/Steam/steamapps/common/')
 
-# Define FILTROS para cada tipo de tarefa
+# Sets FILTROS for each task type
 filtros() {
     case "$1" in
-        home_arquivos) FILTROS=(--exclude='/.*') ;;                                            # tudo menos os arquivos ocultos
-        home_config)   FILTROS=("${EXCL_CONFIG[@]}" "${EXCL_CACHE[@]}" --include='/.*' --exclude='/*') ;;  # só os ocultos (configurações)
+        home_arquivos) FILTROS=(--exclude='/.*') ;;                                            # everything except hidden files
+        home_config)   FILTROS=("${EXCL_CONFIG[@]}" "${EXCL_CACHE[@]}" --include='/.*' --exclude='/*') ;;  # hidden files only (settings)
         disco)         FILTROS=(--exclude='/lost+found/' --exclude='/.Trash-*/' --exclude='/$RECYCLE.BIN/'
                                 --exclude='/System Volume Information/' --exclude='/BACKUP_PC/') ;;
         *)             FILTROS=() ;;
@@ -229,7 +229,7 @@ for p in "${EXTRAS[@]}"; do nova_tarefa "$(L Pasta Folder) $p" "$p" "04_OutrasPa
 for d in "${OUTROS[@]}"; do nova_tarefa "$(L "Disco $d inteiro" "Whole disk $d")" "$d" "04_OutrasPastas/disco_$(basename "$d")" disco; done
 nova_tarefa "$(L 'Configurações do sistema (/etc, só para consulta)' 'System settings (/etc, for reference only)')" /etc "00_Info/etc" nenhum
 
-# ---------- 4. Verificar se cabe ----------
+# ---------- 4. Check if it fits ----------
 titulo "$(L 'CALCULANDO O TAMANHO DO BACKUP' 'CALCULATING THE BACKUP SIZE')"
 msg "$(L 'Isso não copia nada, só mede. Pode levar alguns minutos...' 'Nothing is copied yet, this only measures. It may take a few minutes...')"
 medir() {
@@ -247,7 +247,7 @@ done
 
 FORCAR=0
 while true; do
-    # Soma por grupo, mantendo a ordem
+    # Sum per group, keeping the order
     GRUPOS=(); declare -A SOMA=()
     for i in "${!T_GRUPO[@]}"; do
         g="${T_GRUPO[$i]}"
@@ -255,7 +255,7 @@ while true; do
         SOMA[$g]=$(( SOMA[$g] + T_BYTES[$i] ))
     done
     TOTAL=0; for g in "${GRUPOS[@]}"; do TOTAL=$(( TOTAL + SOMA[$g] )); done
-    NECESSARIO=$(( TOTAL + TOTAL / 20 + 1073741824 ))     # margem de 5% + 1 GB
+    NECESSARIO=$(( TOTAL + TOTAL / 20 + 1073741824 ))     # 5% + 1 GB margin
     LIVRE="$(livre_bytes "$DEST_MNT")"
 
     echo
@@ -299,7 +299,7 @@ aviso "$(L 'FECHE os programas abertos (navegador, e-mail, jogos...) antes de co
 aviso "$(L 'Se for notebook, deixe ligado na tomada. Pode demorar bastante.' 'If this is a laptop, keep it plugged in. This may take a while.')"
 perguntar "$(L 'Começar o backup agora?' 'Start the backup now?')" || sair 0
 
-# ---------- Pastas de destino ----------
+# ---------- Destination folders ----------
 INICIO=$(date +%s)
 DESTINO="$DEST_MNT/BACKUP_PC/$(hostname)_$(date +%Y-%m-%d_%H-%M)"
 DINFO="$DESTINO/00_Info"; DPROG="$DESTINO/01_Programas"; DWIFI="$DESTINO/03_WiFi"
@@ -307,7 +307,7 @@ mkdir -p "$DINFO" "$DPROG" "$DWIFI" "$DESTINO/04_OutrasPastas" || { erro "$(L "N
 LOG="$DINFO/log-copia.txt"
 RESUMO=()
 
-# ---------- 1. Informações do sistema ----------
+# ---------- 1. System information ----------
 titulo "$(L '1/5  Informações do sistema' '1/5  System information')"
 {
     echo "$(L 'Data do backup ' 'Backup date    ') : $(date)"
@@ -321,12 +321,12 @@ titulo "$(L '1/5  Informações do sistema' '1/5  System information')"
     echo
     lsblk -o NAME,SIZE,FSTYPE,LABEL,MOUNTPOINT 2>/dev/null
 } > "$DINFO/sistema.txt"
-# Marca de origem: o restaurar usa para saber de onde veio o backup
+# Origin marker: the restore uses it to know where the backup came from
 printf 'linux\n%s\n%s\n%s\n' "$DISTRO_ID" "$DISTRO_VERSAO" "$FAMILIA" > "$DINFO/origem.txt"
 for u in "${USUARIOS[@]}"; do crontab -l -u "${u%%:*}" > "$DINFO/crontab-${u%%:*}.txt" 2>/dev/null || rm -f "$DINFO/crontab-${u%%:*}.txt"; done
 ok "$(L 'Informações salvas.' 'Information saved.')"
 
-# ---------- 2. Lista de programas ----------
+# ---------- 2. Program list ----------
 titulo "$(L '2/5  Lista de programas instalados' '2/5  List of installed programs')"
 if [ "$FAMILIA" = apt ]; then
     apt-mark showmanual 2>/dev/null | sort -u > "$DPROG/pacotes-apt.txt"
@@ -362,7 +362,7 @@ else
     msg "$(L 'NetworkManager não encontrado: nenhuma rede salva.' 'NetworkManager not found: no networks saved.')"
 fi
 
-# ---------- 4. Arquivos ----------
+# ---------- 4. Files ----------
 titulo "$(L '4/5  Copiando arquivos' '4/5  Copying files') ($(gb "$TOTAL"))"
 : > "$DESTINO/04_OutrasPastas/caminhos.txt"
 n=0; QTD=${#T_GRUPO[@]}
@@ -384,7 +384,7 @@ for i in "${!T_GRUPO[@]}"; do
     esac
 done
 
-# ---------- 5. Fim ----------
+# ---------- 5. Finish ----------
 titulo "$(L '5/5  Finalizando' '5/5  Finishing')"
 DURACAO=$(( $(date +%s) - INICIO ))
 TEMPO="$(printf '%02d:%02d:%02d' $((DURACAO / 3600)) $((DURACAO % 3600 / 60)) $((DURACAO % 60)))"
@@ -404,6 +404,6 @@ done
 echo
 ok "$(L 'Tempo' 'Time'): $TEMPO   $(L 'Tamanho' 'Size'): $(gb "$TAMANHO")"
 ok "$(L 'Salvo em' 'Saved to'): $DESTINO"
-msg "$(L 'Para passar para o outro computador: ligue o disco nele e rode  bash restaurar.sh' 'To move it to the other computer: connect the disk there and run  bash restaurar.sh')"
+msg "$(L 'Para passar para o outro computador: ligue o disco nele e rode  bash restore.sh' 'To move it to the other computer: connect the disk there and run  bash restore.sh')"
 sync
 sair 0

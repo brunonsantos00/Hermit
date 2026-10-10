@@ -30,33 +30,33 @@ The launchers are at the project root and share the same icon:
 
 | System | Open with | What it does |
 |---|---|---|
-| Windows | **`BackupMigracao.exe`** (double-click) | Opens the graphical panel |
-| Linux | **`BackupMigracao.sh`** (double-click or `bash BackupMigracao.sh`) | Opens the menu with backup and restore. Option 3 creates a shortcut with icon in the applications menu |
+| Windows | **`Hermit.exe`** (double-click) | Opens the graphical panel |
+| Linux | **`hermit.sh`** (double-click or `bash hermit.sh`) | Opens the menu with backup and restore. Option 3 creates a shortcut with icon in the applications menu |
 
-> The `.exe` is not digitally signed. The first time, Windows may show "Windows protected your PC": click **More info → Run anyway**. The source code is in [`launcher/`](launcher/) and you can rebuild it with `launcher/compilar.ps1`.
+> The `.exe` is not digitally signed. The first time, Windows may show "Windows protected your PC": click **More info → Run anyway**. The source code is in [`launcher/`](launcher/) and you can rebuild it with `launcher/build.ps1`.
 
 ## Language
 
 | Where | How to switch |
 |---|---|
 | Windows panel | **PT \| EN** button at the top of the window. The choice is saved and also applies to the scripts |
-| Linux menu | Option **[5]** of `BackupMigracao.sh` |
+| Linux menu | Option **[5]** of `hermit.sh` |
 | Scripts directly | `-Idioma pt` / `-Idioma en` on Windows, `--idioma pt` / `--idioma en` on Linux |
 
 The first time, the language follows the system language: Portuguese if the system is in Portuguese, English otherwise. Folder names inside the backup are the same in both languages, so a backup made in one language restores normally in the other.
 
 ## Windows
 
-Easiest way: double-click **`BackupMigracao.exe`**, or **`windows/0-ABRIR-PAINEL.bat`**.
+Easiest way: double-click **`Hermit.exe`**, or **`windows/0-OPEN-PANEL.bat`**.
 
 The panel shows the connected devices and has **Back up** and **Restore backup** buttons. It notices automatically when a drive is connected. You can also run each step directly with the `.bat` files:
 
-1. **On the old computer:** `1-FAZER-BACKUP.bat`. Choose the disk and answer the questions.
-2. **On the new computer:** `2-RESTAURAR-BACKUP.bat`. Choose **[1] EVERYTHING**.
+1. **On the old computer:** `1-BACKUP.bat`. Choose the disk and answer the questions.
+2. **On the new computer:** `2-RESTORE-BACKUP.bat`. Choose **[1] EVERYTHING**.
 
 ### Backup 2.0: move programs without reinstalling
 
-**`1-FAZER-BACKUP-2.0.bat`** makes the same backup and also copies the **folders of the installed programs** (`Program Files`, `Program Files (x86)`, `AppData\Local\Programs`, their data in `ProgramData` and the Start Menu shortcuts).
+**`1-BACKUP-2.0.bat`** makes the same backup and also copies the **folders of the installed programs** (`Program Files`, `Program Files (x86)`, `AppData\Local\Programs`, their data in `ProgramData` and the Start Menu shortcuts).
 
 On restore (**[1] EVERYTHING** or **[7]**), the folders go back to the same place. **If the program already exists on the new computer, its files are replaced** by the ones from the backup. If the program is open, Hermit closes it first, as long as you allow it.
 
@@ -64,7 +64,7 @@ On restore (**[1] EVERYTHING** or **[7]**), the folders go back to the same plac
 
 ### Compare the backup with the computer
 
-**`3-COMPARAR-BACKUP.bat`** shows what is in the backup but **did not reach** this computer:
+**`3-COMPARE-BACKUP.bat`** shows what is in the backup but **did not reach** this computer:
 - **Missing:** in the backup but not here.
 - **Newer:** exists here, but the backup version is newer.
 
@@ -74,8 +74,8 @@ To **only see the difference**, with no copy offer, there are two options:
 
 | Option | What it looks like |
 |---|---|
-| **`Comparador.exe`** (root) | Window: choose the backup and click **Compare**. Shows cards with the totals, folders with differences first, the missing files with the size of each one, and a search by name |
-| **`APENAS_COMPARAÇÃO.bat`** | Terminal: colored list per folder (red = missing, yellow = newer in the backup, green = all good) |
+| **`Hermit-Compare.exe`** (root) | Window: choose the backup and click **Compare**. Shows cards with the totals, folders with differences first, the missing files with the size of each one, and a search by name |
+| **`COMPARE-ONLY.bat`** | Terminal: colored list per folder (red = missing, yellow = newer in the backup, green = all good) |
 
 ## Linux
 
@@ -83,7 +83,7 @@ Open a terminal in the drive's `linux/` folder:
 
 ```bash
 bash backup.sh       # on the old computer
-bash restaurar.sh    # on the new computer
+bash restore.sh    # on the new computer
 ```
 
 The scripts ask for the administrator password, keep the computer from sleeping during the copy and work with drives formatted as ext4, NTFS, exFAT or FAT32.
@@ -127,7 +127,10 @@ BACKUP_PC/<PC>_<date>/
 
 | Branch | Content |
 |---|---|
-| `main` | Stable version. Receives the other branches through merges |
+| `main` | Stable version, published in the Releases |
+| `staging` | Staging: version under test. Receives the feature branches and goes to `main` once approved |
 | `feature/windows` | Windows scripts and panel |
 | `feature/linux` | Linux scripts |
 | `feature/launcher` | Icon and launchers (`.exe` and `.sh`) |
+
+Flow: `feature/*` → `staging` → `main` (stable).

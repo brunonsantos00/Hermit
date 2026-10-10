@@ -1,11 +1,11 @@
-﻿// Executável que abre o painel do Backup e Migração (windows\painel.ps1).
+﻿// Executable that opens the Hermit panel (windows\panel.ps1).
 //
-// Dois modos, mesmo código:
-//  - Normal:   o .exe fica na raiz do projeto, ao lado das pastas "windows" e "linux".
-//  - Portátil: o projeto vai embutido no .exe (recurso "hermit.zip"). Na primeira vez ele é
-//              extraído para %LOCALAPPDATA%\Hermit\<versão> e o painel é aberto de lá.
-// Compile com launcher\compilar.ps1 (normal) ou launcher\gerar-release.ps1 (portátil + .zip).
-// Com /define:COMPARADOR o mesmo código gera o Comparador.exe, que abre windows\comparador.ps1.
+// Two modes, same code:
+//  - Normal:   the .exe sits at the project root, next to the "windows" and "linux" folders.
+//  - Portable: the project is embedded in the .exe ("hermit.zip" resource). On first run it is
+//              extracted to %LOCALAPPDATA%\Hermit\<version> and the panel is opened from there.
+// Build with launcher\build.ps1 (normal) or launcher\build-release.ps1 (portable + .zip).
+// With /define:COMPARADOR the same code builds Hermit-Compare.exe, which opens windows\compare-window.ps1.
 
 using System;
 using System.Diagnostics;
@@ -29,19 +29,19 @@ static class Programa
 {
     const string Versao = "2.1";
 #if COMPARADOR
-    const string Script = "comparador.ps1";
+    const string Script = "compare-window.ps1";
 #else
-    const string Script = "painel.ps1";
+    const string Script = "panel.ps1";
 #endif
     static bool ingles;
 
-    // Mesmo critério do painel: escolha salva no painel, senão o idioma do Windows
+    // Same rule as the panel: the choice saved in the panel, otherwise the Windows language
     static bool UsarIngles()
     {
         try
         {
             string salvo = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                                        "BackupMigracao", "idioma.txt");
+                                        "Hermit", "language.txt");
             if (File.Exists(salvo))
             {
                 string v = File.ReadAllText(salvo).Trim();
@@ -55,7 +55,7 @@ static class Programa
 
     static string L(string pt, string en) { return ingles ? en : pt; }
 
-    // Modo portátil: extrai o projeto embutido (só na primeira vez de cada versão)
+    // Portable mode: extracts the embedded project (only the first time for each version)
     static string ExtrairEmbutido()
     {
         using (Stream zip = Assembly.GetExecutingAssembly().GetManifestResourceStream("hermit.zip"))

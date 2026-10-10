@@ -1,24 +1,24 @@
 ﻿<#
-    COMPARAR O BACKUP COM ESTE COMPUTADOR / COMPARE THE BACKUP WITH THIS COMPUTER
+    HERMIT - COMPARE THE BACKUP WITH THIS COMPUTER
     ----------------------------------------------------------------------------
-    Mostra o que está no backup e NÃO chegou neste computador (arquivos que faltam ou que
-    estão mais novos no backup). Só lê: não apaga nem muda nada, a menos que você peça para
-    copiar o que falta no final.
+    Shows what is in the backup and did NOT reach this computer (missing files or files that
+    are newer in the backup). Read-only: it deletes or changes nothing, unless you ask it to
+    copy what is missing at the end.
 
-    Como usar: dois cliques em "3-COMPARAR-BACKUP.bat".
-    Opções:  -Idioma pt|en   -Backup <pasta do backup>   -Usuario <nome no backup>
-             -IncluirConfiguracoes   -SemPerguntas (não pergunta nada e não copia)
-             -ApenasComparar ("APENAS_COMPARAÇÃO.bat": mostra a lista do que falta e não oferece cópia)
-             -SaidaJson <arquivo> (usado pelo Comparador.exe: grava o resultado e termina)
+    Usage: double-click "3-COMPARE-BACKUP.bat".
+    Options: -Idioma pt|en   -Backup <backup folder>   -Usuario <name in the backup>
+             -IncluirConfiguracoes   -SemPerguntas (asks nothing and copies nothing)
+             -ApenasComparar ("COMPARE-ONLY.bat": shows the list of what is missing and offers no copy)
+             -SaidaJson <file> (used by Hermit-Compare.exe: writes the result and exits)
 #>
 param([string]$Idioma, [string]$Backup, [string]$Usuario, [switch]$IncluirConfiguracoes, [switch]$SemPerguntas,
       [switch]$ApenasComparar, [string]$SaidaJson)
 if ($SaidaJson) { $SemPerguntas = [switch]$true }
 
-. (Join-Path $PSScriptRoot 'idioma.ps1')
+. (Join-Path $PSScriptRoot 'language.ps1')
 $script:idioma = Get-Idioma $Idioma
 
-$script:transcript = Join-Path $PSScriptRoot 'ultima-execucao-comparar.txt'
+$script:transcript = Join-Path $PSScriptRoot 'last-run-compare.txt'
 try { Start-Transcript -Path $script:transcript -Force | Out-Null } catch {}
 trap {
     Write-Host ''
@@ -56,14 +56,14 @@ function Sair([int]$codigo = 0) {
 }
 function GB([double]$bytes) { if ($bytes -lt 1MB) { '{0:N0} KB' -f [math]::Ceiling($bytes / 1KB) } elseif ($bytes -lt 1GB) { '{0:N1} MB' -f ($bytes / 1MB) } else { '{0:N2} GB' -f ($bytes / 1GB) } }
 
-# Arquivos que não interessam na comparação
+# Files that do not matter for the comparison
 $lixo = 'desktop.ini', 'Thumbs.db', '~$*', '*.tmp', 'NTUSER.DAT*', 'ntuser.*', 'UsrClass.dat*'
 $pastasCache = 'Cache', 'Cache_Data', 'Code Cache', 'GPUCache', 'DawnCache', 'GrShaderCache', 'ShaderCache', 'CachedData', 'CacheStorage', 'Crashpad', 'CrashDumps', 'Temp', 'tmp'
 
-# Lista (sem copiar) os arquivos que o robocopy copiaria. Devolve os caminhos completos no backup.
+# Lists (without copying) the files robocopy would copy. Returns the full paths in the backup.
 function Listar([string]$origem, [string]$destino, [string[]]$filtro, [string[]]$xd) {
     $log = Join-Path $env:TEMP ('comparar_' + [guid]::NewGuid().ToString('N') + '.txt')
-    # /XX: não lista os arquivos que existem só neste computador (extras)
+    # /XX: does not list files that exist only on this computer (extras)
     $a = @($origem, $destino, '/L', '/E', '/XJ', '/XX', '/R:0', '/W:0', '/FP', '/NC', '/NS', '/NDL', '/NJH', '/NJS', '/NP', "/UNILOG:$log") + $filtro
     $a += '/XF'; $a += $lixo
     if ($xd.Count) { $a += '/XD'; $a += $xd }
@@ -80,7 +80,7 @@ function Listar([string]$origem, [string]$destino, [string[]]$filtro, [string[]]
 Titulo (L 'COMPARAR BACKUP COM ESTE COMPUTADOR' 'COMPARE BACKUP WITH THIS COMPUTER')
 Msg (L 'Mostra o que está no backup e não chegou neste computador. Nada é apagado ou alterado.' 'Shows what is in the backup but did not reach this computer. Nothing is deleted or changed.')
 
-# ---------- Escolher o backup ----------
+# ---------- Choose the backup ----------
 if ($Backup) {
     if (-not (Test-Path -LiteralPath $Backup)) { Erro (L "Pasta não encontrada: $Backup" "Folder not found: $Backup"); Sair 1 }
     $bk = (Resolve-Path -LiteralPath $Backup).Path
@@ -103,7 +103,7 @@ if ((Test-Path -LiteralPath $origemTxt) -and ((Get-Content -LiteralPath $origemT
     Sair 1
 }
 
-# ---------- Escolher o usuário ----------
+# ---------- Choose the user ----------
 $usuarios = @(Get-ChildItem -LiteralPath "$bk\02_Usuarios" -Directory -ErrorAction SilentlyContinue)
 if (-not $usuarios.Count) { Erro (L 'Não há usuários neste backup.' 'There are no users in this backup.'); Sair 1 }
 if ($Usuario) { $ub = $usuarios | Where-Object { $_.Name -eq $Usuario } | Select-Object -First 1 }
@@ -120,7 +120,7 @@ if (-not $comConfig -and -not $SemPerguntas) {
     $comConfig = Perguntar (L 'Comparar também as configurações dos programas (AppData)? Costuma ter muitas diferenças normais.' 'Also compare program settings (AppData)? It usually has many normal differences.')
 }
 
-# ---------- Montar os pares backup -> computador (mesmo mapa da restauração) ----------
+# ---------- Build the backup -> computer pairs (same mapping as the restore) ----------
 $pares = New-Object System.Collections.ArrayList
 function Par([string]$nome, [string]$origem, [string]$destino, [string[]]$xd = @()) {
     if (Test-Path -LiteralPath $origem) { [void]$pares.Add([pscustomobject]@{ Nome = $nome; Origem = $origem; Destino = $destino; XD = $xd }) }
@@ -144,7 +144,7 @@ foreach ($k in $mapa.Keys) {
     Par $mapa[$k][1] (Join-Path $perfilBk $k) $dest
     $excluirPerfil += Join-Path $perfilBk $k
 }
-# OneDrive antigo: a restauração põe numa pasta separada (o nome depende do idioma usado na restauração)
+# Old OneDrive: the restore puts it in a separate folder (the name depends on the language used during the restore)
 foreach ($od in @(Get-ChildItem -LiteralPath $perfilBk -Directory -Filter 'OneDrive*' -ErrorAction SilentlyContinue)) {
     $dest = Join-Path $alvo "OneDrive do computador antigo\$($od.Name)"
     $destEn = Join-Path $alvo "OneDrive from the old computer\$($od.Name)"
@@ -159,7 +159,7 @@ if ($comConfig) {
     Par (L 'Configurações (AppData\Local)' 'Settings (AppData\Local)') "$usuarioBk\AppData\Local" "$alvo\AppData\Local" $pastasCache
 }
 
-# Pastas extras e outros discos
+# Extra folders and other disks
 $letraSis = $env:SystemDrive.TrimEnd(':')
 foreach ($g in @(Get-ChildItem -LiteralPath "$bk\04_OutrasPastas" -Directory -ErrorAction SilentlyContinue)) {
     if ($g.Name -eq $letraSis) {
@@ -171,7 +171,7 @@ foreach ($g in @(Get-ChildItem -LiteralPath "$bk\04_OutrasPastas" -Directory -Er
     }
 }
 
-# Backup 2.0: pastas dos programas
+# Backup 2.0: program folders
 $progBk = "$bk\05_Programas"
 foreach ($par in @(@('ProgramFiles', $env:ProgramFiles), @('ProgramFilesX86', ${env:ProgramFiles(x86)}), @('ProgramData', $env:ProgramData))) {
     if (-not $par[1]) { continue }
@@ -183,17 +183,17 @@ foreach ($prog in @(Get-ChildItem -LiteralPath "$progBk\Usuario_$($ub.Name)" -Di
     Par "$(L 'Programa' 'Program'): $($prog.Name)" $prog.FullName (Join-Path $alvo "AppData\Local\Programs\$($prog.Name)")
 }
 
-# ---------- Comparar ----------
+# ---------- Compare ----------
 Titulo (L 'COMPARANDO' 'COMPARING')
 Msg (L 'Isso só lê os arquivos. Pode levar alguns minutos em backups grandes...' 'This only reads the files. It may take a few minutes on large backups...')
 $resultados = foreach ($p in $pares) {
     Write-Host "  $(L 'comparando' 'comparing') $($p.Nome)" -ForegroundColor DarkGray
     $base = $p.Origem.TrimEnd('\').Length
-    $faltam = foreach ($f in (Listar $p.Origem $p.Destino @('/XC', '/XN', '/XO') $p.XD)) {     # existem só no backup
+    $faltam = foreach ($f in (Listar $p.Origem $p.Destino @('/XC', '/XN', '/XO') $p.XD)) {     # exist only in the backup
         $tam = [int64]0; try { $tam = (Get-Item -LiteralPath $f -Force -ErrorAction Stop).Length } catch {}
         [pscustomobject]@{ Arquivo = $f.Substring($base).TrimStart('\'); Bytes = $tam }
     }
-    $novos = foreach ($f in (Listar $p.Origem $p.Destino @('/XL', '/XO') $p.XD)) {             # existem nos dois, mas o backup é mais novo/diferente
+    $novos = foreach ($f in (Listar $p.Origem $p.Destino @('/XL', '/XO') $p.XD)) {             # exist on both, but the backup is newer/different
         $tam = [int64]0; try { $tam = (Get-Item -LiteralPath $f -Force -ErrorAction Stop).Length } catch {}
         [pscustomobject]@{ Arquivo = $f.Substring($base).TrimStart('\'); Bytes = $tam }
     }
@@ -204,7 +204,7 @@ $resultados = @($resultados)
 $totalFaltam = 0; $totalNovos = 0; $totalBytes = [int64]0
 foreach ($r in $resultados) { $totalFaltam += $r.Faltam.Count; $totalNovos += $r.Novos.Count; $totalBytes += $r.Bytes }
 
-# ---------- Relatório (texto, na Área de Trabalho) ----------
+# ---------- Report (text, on the Desktop) ----------
 $relatorio = Join-Path ([Environment]::GetFolderPath('Desktop')) (L 'COMPARACAO DO BACKUP.txt' 'BACKUP COMPARISON.txt')
 $linhas = New-Object System.Collections.ArrayList
 [void]$linhas.Add("$(L 'COMPARAÇÃO DO BACKUP COM ESTE COMPUTADOR' 'BACKUP COMPARISON WITH THIS COMPUTER') - $(Get-Date)")
@@ -230,7 +230,7 @@ foreach ($r in $resultados) {
 }
 $linhas | Out-File -LiteralPath $relatorio -Encoding utf8
 
-# ---------- Modo janela: grava o resultado para o Comparador.exe e termina ----------
+# ---------- Window mode: writes the result for Hermit-Compare.exe and exits ----------
 if ($SaidaJson) {
     $dados = [pscustomobject]@{
         Backup = $bk; Usuario = $ub.Name; Computador = $env:COMPUTERNAME; Destino = $alvo
@@ -246,7 +246,7 @@ if ($SaidaJson) {
     exit 0
 }
 
-# ---------- Resultado na tela ----------
+# ---------- Result on screen ----------
 Titulo (L 'RESULTADO' 'RESULT')
 Msg ('{0,-34} {1,10} {2,12} {3,12}' -f (L 'Item' 'Item'), (L 'Faltam' 'Missing'), (L 'Tamanho' 'Size'), (L 'Mais novos' 'Newer'))
 Msg ('-' * 72)
@@ -261,7 +261,7 @@ Write-Host ('  {0,-9}' -f (L 'Vermelho' 'Red')) -ForegroundColor Red -NoNewline;
 Write-Host ('  {0,-9}' -f (L 'Amarelo' 'Yellow')) -ForegroundColor Yellow -NoNewline; Msg (L '= nada falta, mas o backup tem versões mais novas' '= nothing missing, but the backup has newer versions')
 Write-Host ('  {0,-9}' -f (L 'Verde' 'Green')) -ForegroundColor Green -NoNewline; Msg (L '= tudo certo' '= all good')
 
-# ---------- Modo "apenas comparar": mostra a lista do que falta, bem visível ----------
+# ---------- "Compare only" mode: shows the list of what is missing, clearly ----------
 if ($ApenasComparar) {
     $limite = 25
     foreach ($r in $resultados) {
@@ -302,11 +302,11 @@ if ($totalFaltam -eq 0 -and $totalNovos -eq 0) {
     Aviso (L "Relatório completo salvo na Área de Trabalho: $relatorio" "Full report saved on the Desktop: $relatorio")
     if (-not $SemPerguntas) { Start-Process notepad.exe "`"$relatorio`"" }
 
-    # ---------- Copiar o que falta ----------
+    # ---------- Copy what is missing ----------
     if ($totalFaltam -gt 0) {
         Write-Host ''
         if (Perguntar ((L 'Copiar agora os {0} arquivos que faltam ({1})? Nada que já existe aqui será substituído.' 'Copy the {0} missing files ({1}) now? Nothing that already exists here will be replaced.') -f $totalFaltam, (GB $totalBytes))) {
-            $log = Join-Path $PSScriptRoot 'ultima-copia-comparar.txt'
+            $log = Join-Path $PSScriptRoot 'last-copy-compare.txt'
             foreach ($r in $resultados | Where-Object { $_.Faltam.Count }) {
                 Write-Host "  -> $($r.Par.Destino)" -ForegroundColor DarkCyan
                 $a = @($r.Par.Origem, $r.Par.Destino, '/E', '/XJ', '/XC', '/XN', '/XO', '/COPY:DAT', '/DCOPY:T', '/R:1', '/W:1', '/MT:16', '/NP', '/NDL', '/NJH', "/UNILOG+:$log", '/TEE')

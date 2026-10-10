@@ -1,6 +1,6 @@
 ﻿<#
-    Gera o ícone do projeto: assets\icone.ico (Windows) e assets\icone.png (Linux).
-    Rode de novo só se quiser mudar o desenho.
+    Generates the project icon: assets\icon.ico (Windows) and assets\icon.png (Linux).
+    Run it again only if you want to change the drawing.
 #>
 
 Add-Type -AssemblyName System.Drawing
@@ -12,7 +12,7 @@ function Desenhar([int]$tam) {
     $g.SmoothingMode = 'AntiAlias'; $g.PixelOffsetMode = 'HighQuality'
     $g.Clear([Drawing.Color]::Transparent)
 
-    # Fundo: quadrado arredondado azul
+    # Background: blue rounded square
     $m = 8 * $s; $lado = $tam - 2 * $m; $r = 52 * $s
     $fundo = New-Object Drawing.Drawing2D.GraphicsPath
     $fundo.AddArc($m, $m, 2 * $r, 2 * $r, 180, 90)
@@ -25,7 +25,7 @@ function Desenhar([int]$tam) {
         [Drawing.ColorTranslator]::FromHtml('#2B7FC7'), [Drawing.ColorTranslator]::FromHtml('#0F2B46'))
     $g.FillPath($grad, $fundo)
 
-    # Seta circular (sincronizar / transferir)
+    # Circular arrow (sync / transfer)
     $branco = [Drawing.Color]::White
     $esp = [math]::Max(18 * $s, 2)
     $caneta = New-Object Drawing.Pen $branco, $esp
@@ -34,11 +34,11 @@ function Desenhar([int]$tam) {
     $inicio = -50; $volta = 285
     $g.DrawArc($caneta, $c - $raio, $c - $raio, 2 * $raio, 2 * $raio, $inicio, $volta)
 
-    # Ponta da seta no fim do arco
+    # Arrow head at the end of the arc
     $ang = ($inicio + $volta) * [math]::PI / 180
     $px = $c + $raio * [math]::Cos($ang); $py = $c + $raio * [math]::Sin($ang)
-    $tx = -[math]::Sin($ang); $ty = [math]::Cos($ang)      # direção do movimento
-    $nx = [math]::Cos($ang); $ny = [math]::Sin($ang)       # para fora do círculo
+    $tx = -[math]::Sin($ang); $ty = [math]::Cos($ang)      # direction of movement
+    $nx = [math]::Cos($ang); $ny = [math]::Sin($ang)       # pointing out of the circle
     $L = 30 * $s; $W = 24 * $s
     $pontos = [Drawing.PointF[]]@(
         (New-Object Drawing.PointF ($px + $tx * $L), ($py + $ty * $L)),
@@ -46,7 +46,7 @@ function Desenhar([int]$tam) {
         (New-Object Drawing.PointF ($px - $nx * $W), ($py - $ny * $W)))
     $g.FillPolygon((New-Object Drawing.SolidBrush $branco), $pontos)
 
-    # Disco no centro
+    # Disk in the center
     $dw = 70 * $s; $dh = 44 * $s; $dx = $c - $dw / 2; $dy = $c - $dh / 2; $dr = 9 * $s
     $disco = New-Object Drawing.Drawing2D.GraphicsPath
     $disco.AddArc($dx, $dy, 2 * $dr, 2 * $dr, 180, 90)
@@ -72,7 +72,7 @@ function Png([Drawing.Bitmap]$bmp) {
     return , $ms.ToArray()
 }
 
-# Imagem no formato clássico do .ico (BMP de 32 bits com transparência), lido por qualquer programa
+# Image in the classic .ico format (32-bit BMP with transparency), readable by any program
 function Dib([Drawing.Bitmap]$bmp) {
     $t = $bmp.Width
     $ret = New-Object Drawing.Rectangle 0, 0, $t, $t
@@ -87,15 +87,15 @@ function Dib([Drawing.Bitmap]$bmp) {
     $w.Write([uint16]1); $w.Write([uint16]32); $w.Write([uint32]0)
     $w.Write([uint32]($px.Length + $linhaMascara * $t))
     $w.Write([int32]0); $w.Write([int32]0); $w.Write([uint32]0); $w.Write([uint32]0)
-    for ($y = $t - 1; $y -ge 0; $y--) { $w.Write($px, $y * $t * 4, $t * 4) }   # BMP guarda de baixo para cima
-    $w.Write((New-Object byte[] ($linhaMascara * $t)))                           # máscara vazia (usa o canal alfa)
+    for ($y = $t - 1; $y -ge 0; $y--) { $w.Write($px, $y * $t * 4, $t * 4) }   # BMP stores rows bottom-up
+    $w.Write((New-Object byte[] ($linhaMascara * $t)))                           # empty mask (the alpha channel is used)
     $w.Flush()
     return , $ms.ToArray()
 }
 
 $pasta = $PSScriptRoot
 
-# .ico com vários tamanhos (BMP nos pequenos, PNG no de 256)
+# .ico with several sizes (BMP for the small ones, PNG for 256)
 $tamanhos = 16, 24, 32, 48, 64, 128, 256
 $imagens = foreach ($t in $tamanhos) { if ($t -ge 256) { , (Png (Desenhar $t)) } else { , (Dib (Desenhar $t)) } }
 $ms = New-Object IO.MemoryStream
@@ -112,9 +112,9 @@ for ($i = 0; $i -lt $tamanhos.Count; $i++) {
 }
 foreach ($dados in $imagens) { $w.Write([byte[]]$dados) }
 $w.Flush()
-[IO.File]::WriteAllBytes((Join-Path $pasta 'icone.ico'), $ms.ToArray())
+[IO.File]::WriteAllBytes((Join-Path $pasta 'icon.ico'), $ms.ToArray())
 
-# .png grande para o Linux
-(Desenhar 512).Save((Join-Path $pasta 'icone.png'), [Drawing.Imaging.ImageFormat]::Png)
+# large .png for Linux
+(Desenhar 512).Save((Join-Path $pasta 'icon.png'), [Drawing.Imaging.ImageFormat]::Png)
 
-Write-Host 'Ícones gerados: icone.ico e icone.png'
+Write-Host 'Ícones gerados: icon.ico e icon.png'
