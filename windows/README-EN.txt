@@ -26,6 +26,30 @@ STEP 2 - ON THE NEW COMPUTER
      and install whatever is missing.
   5. Restart the computer.
 
+BACKUP 2.0 - WITH PROGRAM FOLDERS
+  "1-FAZER-BACKUP-2.0.bat" makes the same backup and also copies the folders of the
+  installed programs (Program Files, Program Files (x86), AppData\Local\Programs and
+  their data in ProgramData), plus the Start Menu shortcuts.
+  On restore, option [1] EVERYTHING or [7]: the folders go back to the same place,
+  without reinstalling. If the program already exists on the new computer, its files
+  are REPLACED by the ones from the backup (open programs are closed first, if you allow).
+  Note: programs that depend on services, drivers or activation (Office, Adobe,
+  antivirus, video drivers) may not open this way. In that case, use option [3]
+  Reinstall programs (winget).
+
+COMPARE THE BACKUP WITH THE COMPUTER
+  "3-COMPARAR-BACKUP.bat" shows what is in the backup but did NOT reach this computer:
+  - "Missing": files in the backup that do not exist here;
+  - "Newer": files that exist here, but the backup version is newer.
+  It saves the report "BACKUP COMPARISON.txt" on the Desktop and, at the end, offers
+  to copy what is missing (without replacing anything that already exists). Read-only:
+  it never deletes anything.
+COMPARE ONLY (WITHOUT COPYING ANYTHING)
+  "APENAS_COMPARAÇÃO.bat" compares and shows on screen, in colors, the list of what is
+  missing in each folder (red = missing, yellow = newer in the backup, green = all good).
+  It does not offer to copy anything.
+  There is also a window version: "Comparador.exe" (project root). Choose the backup,
+  click Compare and see the totals, the folders and the missing files, with search.
 WHAT IS SAVED
   - All user files (Desktop, Documents, Downloads, Pictures, Videos, Music,
     and any other folder inside C:\Users\<you>)

@@ -4,8 +4,9 @@
     Como usar: copie esta pasta para o HD externo (ou outro disco) e dê dois cliques em "1-FAZER-BACKUP.bat".
     O backup é salvo em <DISCO>:\BACKUP_PC\<NOME-DO-PC>_<data>\
     Idioma: -Idioma pt | en (padrão: o escolhido no painel, ou o idioma do Windows)
+    -ComProgramas: backup 2.0, copia também as pastas dos programas instalados ("FAZER-BACKUP-2.0.bat")
 #>
-param([string]$Idioma)
+param([string]$Idioma, [switch]$ComProgramas)
 
 . (Join-Path $PSScriptRoot 'idioma.ps1')
 $script:idioma = Get-Idioma $Idioma
@@ -14,7 +15,7 @@ $script:idioma = Get-Idioma $Idioma
 $principal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
 if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
     try {
-        Start-Process powershell.exe -Verb RunAs -ErrorAction Stop -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`" -Idioma $script:idioma"
+        Start-Process powershell.exe -Verb RunAs -ErrorAction Stop -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`" -Idioma $script:idioma$(if ($ComProgramas) { ' -ComProgramas' })"
     } catch {
         Write-Host ''
         Write-Host (L '  [X] É preciso clicar em "SIM" na janela de permissão do Windows.' '  [X] You need to click "YES" on the Windows permission prompt.') -ForegroundColor Red
@@ -188,13 +189,23 @@ $locaisImportantes = 'Google\Chrome\User Data',
                      'Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState'
 
 # Pastas da raiz do C: que são do Windows/programas (não entram no backup)
+# Pastas de Program Files que são do Windows ou de drivers (não entram no backup 2.0)
+$ignorarProgramas = 'Common Files', 'Internet Explorer', 'Microsoft Update Health Tools', 'ModifiableWindowsApps', 'Windows Defender',
+                    'Windows Defender Advanced Threat Protection', 'Windows Mail', 'Windows Media Player', 'Windows Multimedia Platform',
+                    'Windows NT', 'Windows Photo Viewer', 'Windows Portable Devices', 'Windows Security', 'Windows Sidebar', 'WindowsApps',
+                    'WindowsPowerShell', 'Reference Assemblies', 'MSBuild', 'Microsoft.NET', 'dotnet', 'Uninstall Information',
+                    'PCHealthCheck', 'Microsoft OneDrive', 'Intel', 'NVIDIA Corporation', 'AMD', 'Realtek', 'Synaptics', 'ELAN',
+                    'Dolby', 'Conexant', 'Waves', 'Hyper-V', 'WSL', 'Microsoft', 'Microsoft SDKs', 'Windows Kits', 'Temp',
+                    'InstallShield Installation Information', 'Package Cache'
+
 $ignorarRaiz = 'Windows', 'Windows.old', 'Program Files', 'Program Files (x86)', 'ProgramData', 'Users', 'Documents and Settings',
                '$Recycle.Bin', '$WinREAgent', '$Windows.~BT', '$Windows.~WS', '$SysReset', '$GetCurrent', '$AV_ASW',
                'System Volume Information', 'Recovery', 'PerfLogs', 'Config.Msi', 'OneDriveTemp', 'MSOCache',
                'Intel', 'AMD', 'NVIDIA', 'Drivers', 'inetpub', 'ESD', 'XboxGames', 'BACKUP_PC', 'BACKUP_NOTEBOOK', 'SCRIPTS_BACKUP'
 
 # =====================================================================
-Titulo (L 'BACKUP DO COMPUTADOR' 'COMPUTER BACKUP')
+if ($ComProgramas) { Titulo (L 'BACKUP DO COMPUTADOR 2.0 (com as pastas dos programas)' 'COMPUTER BACKUP 2.0 (with program folders)') }
+else { Titulo (L 'BACKUP DO COMPUTADOR' 'COMPUTER BACKUP') }
 $discoSistema = $env:SystemDrive
 Msg "$(L 'Computador' 'Computer'): $env:COMPUTERNAME"
 Write-Host ''
@@ -234,6 +245,31 @@ foreach ($d in $outrosDiscos) {
     if (Perguntar ((L 'Copiar o disco {0} ({1}) inteiro? Usado: {2}' 'Copy the whole disk {0} ({1})? Used: {2}') -f $d.DeviceID, $d.VolumeName, (GB ($d.Size - $d.FreeSpace)))) { $discosEscolhidos += $d.DeviceID }
 }
 
+# ---------- Backup 2.0: pastas dos programas ----------
+$programasEscolhidos = @()
+if ($ComProgramas) {
+    Write-Host ''
+    Titulo (L 'PROGRAMAS (BACKUP 2.0)' 'PROGRAMS (BACKUP 2.0)')
+    Aviso (L 'As pastas dos programas serão copiadas para serem colocadas de volta no computador novo, sem reinstalar.' 'Program folders will be copied so they can be put back on the new computer without reinstalling.')
+    Aviso (L 'Programas que dependem de serviços, drivers ou ativação (Office, Adobe, antivírus...) podem não abrir assim.' 'Programs that depend on services, drivers or activation (Office, Adobe, antivirus...) may not open this way.')
+    $locaisProgramas = @(@($env:ProgramFiles, 'ProgramFiles'), @(${env:ProgramFiles(x86)}, 'ProgramFilesX86'))
+    foreach ($p in $perfis) { $locaisProgramas += , @((Join-Path $p.LocalPath 'AppData\Local\Programs'), "Usuario_$(Split-Path $p.LocalPath -Leaf)") }
+    $encontrados = @()
+    foreach ($local in $locaisProgramas) {
+        if (-not $local[0] -or -not (Test-Path -LiteralPath $local[0])) { continue }
+        foreach ($d in @(Get-ChildItem -LiteralPath $local[0] -Directory -Force -ErrorAction SilentlyContinue)) {
+            if ($ignorarProgramas -contains $d.Name -or ($d.Attributes -band [IO.FileAttributes]::ReparsePoint)) { continue }
+            $encontrados += [pscustomobject]@{ Nome = $d.Name; Caminho = $d.FullName; Rel = "05_Programas\$($local[1])\$($d.Name)" }
+        }
+    }
+    Msg ((L '{0} programas encontrados:' '{0} programs found:') -f $encontrados.Count)
+    Msg ('   ' + (($encontrados | ForEach-Object Nome | Sort-Object -Unique) -join ', '))
+    if ($encontrados.Count) {
+        if (Perguntar (L 'Copiar as pastas de TODOS esses programas?' 'Copy the folders of ALL these programs?')) { $programasEscolhidos = $encontrados }
+        else { foreach ($e in $encontrados) { if (Perguntar "   $(L 'Copiar' 'Copy') $($e.Caminho)?") { $programasEscolhidos += $e } } }
+    }
+}
+
 # ---------- 3. Montar a lista de tarefas ----------
 $tarefas = New-Object System.Collections.ArrayList
 function Nova-Tarefa([string]$grupo, [string]$origem, [string]$rel, [string[]]$xd = @(), [string[]]$xf = @(), [switch]$raizDeDisco) {
@@ -251,6 +287,16 @@ foreach ($p in $perfis) {
 }
 $letraSis = $discoSistema.TrimEnd(':')
 foreach ($p in $pastasRaizEscolhidas) { Nova-Tarefa "$(L 'Pasta' 'Folder') $($p.FullName)" $p.FullName "04_OutrasPastas\$letraSis\$($p.Name)" }
+foreach ($e in $programasEscolhidos) {
+    Nova-Tarefa "$(L 'Programa' 'Program'): $($e.Nome)" $e.Caminho $e.Rel
+    # Muitos programas guardam dados e licenças em ProgramData\<mesmo nome>
+    $dados = Join-Path $env:ProgramData $e.Nome
+    if ((Test-Path -LiteralPath $dados) -and $e.Rel -notlike '05_Programas\Usuario_*') { Nova-Tarefa "$(L 'Programa' 'Program'): $($e.Nome)" $dados "05_Programas\ProgramData\$($e.Nome)" $pastasCache }
+}
+if ($programasEscolhidos.Count) {
+    Nova-Tarefa (L 'Atalhos dos programas (Menu Iniciar e Área de Trabalho pública)' 'Program shortcuts (Start Menu and public Desktop)') "$env:ProgramData\Microsoft\Windows\Start Menu\Programs" '05_Programas\MenuIniciar'
+    Nova-Tarefa (L 'Atalhos dos programas (Menu Iniciar e Área de Trabalho pública)' 'Program shortcuts (Start Menu and public Desktop)') "$env:PUBLIC\Desktop" '05_Programas\AreaDeTrabalhoPublica' @() @('desktop.ini')
+}
 foreach ($d in $discosEscolhidos) {
     Nova-Tarefa (L "Disco $d inteiro" "Whole disk $d") "$d\" "04_OutrasPastas\$($d.TrimEnd(':'))" @('$RECYCLE.BIN', 'System Volume Information') -raizDeDisco
 }
@@ -386,6 +432,7 @@ $script:resumo | ForEach-Object { if ($_.StartsWith('[!')) { Aviso $_.Substring(
 Write-Host ''
 Ok ('{0}: {1:hh\:mm\:ss}   {2}: {3}' -f (L 'Tempo' 'Time'), $duracao, (L 'Tamanho' 'Size'), (GB $tamanho))
 Ok "$(L 'Salvo em' 'Saved to'): $destino"
+if ($programasEscolhidos.Count) { Msg (L 'Backup 2.0: na restauração, as pastas dos programas são colocadas de volta (opção [7]).' 'Backup 2.0: on restore, the program folders are put back (option [7]).') }
 Msg (L 'Para passar para o outro computador: ligue o disco nele e rode "2-RESTAURAR-BACKUP.bat".' 'To move it to the other computer: connect the disk there and run "2-RESTAURAR-BACKUP.bat".')
 [Win32.Energia]::SetThreadExecutionState([uint32]'0x80000000') | Out-Null
 Start-Process explorer.exe $destino

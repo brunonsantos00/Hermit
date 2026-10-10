@@ -27,6 +27,30 @@ PASSO 2 - NO COMPUTADOR NOVO
      e instale manualmente o que faltar.
   5. Reinicie o computador.
 
+BACKUP 2.0 - COM AS PASTAS DOS PROGRAMAS
+  "1-FAZER-BACKUP-2.0.bat" faz o mesmo backup e também copia as pastas dos
+  programas instalados (Program Files, Program Files (x86), AppData\Local\Programs
+  e os dados deles em ProgramData), além dos atalhos do Menu Iniciar.
+  Na restauração, opção [1] TUDO ou [7]: as pastas voltam para o mesmo lugar, sem
+  reinstalar. Se o programa já existir no computador novo, os arquivos dele são
+  SUBSTITUÍDOS pelos do backup (programas abertos são fechados antes, se você deixar).
+  Atenção: programas que dependem de serviços, drivers ou ativação (Office, Adobe,
+  antivírus, drivers de vídeo) podem não abrir assim. Nesse caso, use a opção [3]
+  Reinstalar programas (winget).
+
+COMPARAR O BACKUP COM O COMPUTADOR
+  "3-COMPARAR-BACKUP.bat" mostra o que está no backup e NÃO chegou neste computador:
+  - "Faltam": arquivos que estão no backup e não existem aqui;
+  - "Mais novos": arquivos que existem aqui, mas a versão do backup é mais nova.
+  Salva o relatório "COMPARACAO DO BACKUP.txt" na Área de Trabalho e, no final,
+  oferece copiar o que falta (sem substituir nada que já existe). Só lê: não apaga nada.
+SÓ COMPARAR (SEM COPIAR NADA)
+  "APENAS_COMPARAÇÃO.bat" compara e mostra na tela, com cores, a lista do que falta
+  em cada pasta (vermelho = falta, amarelo = mais novo no backup, verde = tudo certo).
+  Não oferece cópia nenhuma.
+  Também existe a versão com janela: "Comparador.exe" (na raiz do projeto). Escolha
+  o backup, clique em Comparar e veja os totais, as pastas e os arquivos que faltam,
+  com busca por nome.
 O QUE É SALVO
   - Todos os arquivos dos usuários (Área de Trabalho, Documentos, Downloads,
     Imagens, Vídeos, Músicas, e qualquer outra pasta dentro de C:\Users\<você>)
