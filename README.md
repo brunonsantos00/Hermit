@@ -1,78 +1,90 @@
 # Windows Backup and Migration
 
-Scripts em PowerShell para fazer **backup completo de um computador Windows** em um HD externo e **restaurar tudo em outro computador**: arquivos, configurações, redes Wi-Fi e a reinstalação automática dos programas.
+Scripts para fazer **backup completo de um computador** em um HD externo e **restaurar tudo em outro computador**: arquivos, configurações, redes Wi-Fi e a reinstalação automática dos programas.
 
-Não precisa instalar nada: usa só ferramentas que já vêm no Windows 10/11 (`robocopy`, `winget`, `netsh`).
+| Sistema | Versões | Pasta |
+|---|---|---|
+| **Windows** | 10 e 11 | [`windows/`](windows/) |
+| **Linux** | Ubuntu, Debian e Fedora | [`linux/`](linux/) |
 
-## Como usar
+Não precisa instalar nada: os scripts usam só ferramentas que já vêm no sistema (`robocopy`, `winget` e `netsh` no Windows; `rsync`, `apt`/`dnf` e `nmcli` no Linux).
 
-O jeito mais fácil: dê dois cliques em **`0-ABRIR-PAINEL.bat`**. Abre uma janela com botões para fazer backup, restaurar, ver os discos conectados (com espaço livre e backups encontrados) e abrir o guia. O painel percebe sozinho quando um HD é conectado.
+## Recursos
 
-Se preferir, dá para rodar cada etapa direto pelos `.bat`:
+- **Escolha do disco de destino** e **verificação de espaço antes de copiar**. Se não couber, dá pra trocar de disco ou tirar itens.
+- **Detecção de sistema operacional** em cada disco: Windows, Linux ou macOS. Dispositivos sem sistema aparecem marcados como próprios só para guardar backups.
+- **Reinstalação automática dos programas**: `winget` no Windows; `apt`/`dnf`, Flatpak e Snap no Linux. O que não der pra instalar vai para uma lista na Área de Trabalho.
+- **Migração Windows → Linux**: o restaurar do Linux aceita backups feitos no Windows (arquivos pessoais e redes Wi-Fi).
+- **Painel gráfico no Windows**: janela com botões, lista de dispositivos com o sistema de cada um, espaço livre e backups encontrados.
 
-### 1. No computador antigo
-1. Copie esta pasta para o HD externo.
-2. Feche os programas abertos (navegador, Outlook, etc.).
-3. Dê dois cliques em **`1-FAZER-BACKUP.bat`** e aceite a permissão de administrador.
-4. Escolha o disco de destino e responda as perguntas.
+## Windows
 
-O script mede o tamanho do backup **antes de copiar** e avisa se não couber. Se não couber, dá pra trocar de disco ou tirar itens.
+O jeito mais fácil: dê dois cliques em **`windows/0-ABRIR-PAINEL.bat`**.
 
-O backup fica em `<DISCO>:\BACKUP_PC\<NOME-DO-PC>_<data>\`.
+O painel mostra os dispositivos conectados e tem botões para **Fazer backup** e **Restaurar backup**. Ele percebe sozinho quando um HD é conectado. Também dá pra rodar cada etapa direto pelos `.bat`:
 
-### 2. No computador novo
-1. Ligue o HD externo.
-2. Dê dois cliques em **`2-RESTAURAR-BACKUP.bat`**.
-3. Escolha **[1] TUDO**, ou restaure por partes pelo menu.
+1. **No computador antigo:** `1-FAZER-BACKUP.bat`. Escolha o disco e responda as perguntas.
+2. **No computador novo:** `2-RESTAURAR-BACKUP.bat`. Escolha **[1] TUDO**.
 
-O script encontra o backup sozinho em qualquer disco conectado e verifica se há espaço.
+## Linux
+
+Abra um terminal na pasta `linux/` do HD:
+
+```bash
+bash backup.sh       # no computador antigo
+bash restaurar.sh    # no computador novo
+```
+
+Os scripts pedem a senha de administrador, impedem o computador de suspender durante a cópia e funcionam com HD em ext4, NTFS, exFAT ou FAT32.
 
 ## O que é salvo
 
-| Item | Como é restaurado |
-|---|---|
-| Arquivos dos usuários (Área de Trabalho, Documentos, Downloads, Imagens, Vídeos, Músicas…) | Copiados para as pastas certas, inclusive se estiverem no OneDrive |
-| Configurações dos programas (`AppData\Roaming`) | Copiadas de volta (opcional, depois de reinstalar os programas) |
-| Navegadores: Chrome, Edge, Brave, Vivaldi, Firefox | Favoritos, extensões e histórico |
-| Programas instalados | Reinstalados pelo `winget`. Os que não estão nele vão para uma lista de instalação manual |
-| Redes Wi-Fi e senhas | Importadas automaticamente |
-| Pastas extras na raiz do `C:` e outros discos | Opcional, você escolhe o que entra |
-| Informações do sistema, chave do Windows (BIOS), impressoras | Ficam salvas para consulta |
+| Item | Windows | Linux |
+|---|---|---|
+| Arquivos dos usuários | Pasta do usuário inteira | Pasta pessoal inteira |
+| Configurações dos programas | `AppData\Roaming` + navegadores | Arquivos ocultos (`~/.config`, `~/.mozilla`, `~/.ssh`…) |
+| Programas | Lista do `winget` | Pacotes `apt`/`dnf` + Flatpak + Snap |
+| Redes Wi-Fi e senhas | `netsh` | NetworkManager |
+| Extras (opcional) | Pastas na raiz do `C:` e outros discos | `/opt`, `/srv`, `/var/www`, `/usr/local` e outros discos |
+| Informações | Sistema, chave do Windows, impressoras | Sistema, `/etc`, crontab |
+
+Caches e lixeira ficam de fora. Eles são recriados sozinhos.
 
 ## Limitações
 
-- **Programas** não são copiados, são **reinstalados** (o `winget` instala a versão mais recente).
-- **Senhas salvas no navegador** não funcionam em outro PC, porque o Windows as criptografa por computador. Use a sincronização da conta Google/Microsoft.
+- **Programas** não são copiados, são **reinstalados** na versão mais recente.
+- **Senhas salvas no navegador** não funcionam em outro computador no Windows, porque são criptografadas por máquina. Use a sincronização da conta Google/Microsoft/Firefox.
+- **Pacotes de Linux entre famílias diferentes** (Ubuntu/Debian ↔ Fedora) têm nomes diferentes, então vão para a lista manual. Flatpak e Snap funcionam em qualquer distribuição.
 - **Licenças** de programas pagos precisam ser ativadas de novo.
-- **Arquivos do OneDrive que só estão na nuvem** não são baixados, porque já estão salvos online.
-- Em discos **FAT32**, arquivos maiores que 4 GB não cabem. Prefira NTFS ou exFAT.
+- **FAT32** não aceita arquivos maiores que 4 GB. Prefira NTFS, exFAT ou ext4.
 
 ## Estrutura do backup
 
+O formato é o mesmo nos dois sistemas:
+
 ```
-BACKUP_PC\<PC>_<data>\
-├── 00_Info\          sistema, impressoras, variáveis de ambiente, log da cópia
-├── 01_Programas\     lista do winget (.json) + lista completa (.csv/.txt)
-├── 02_Usuarios\      <usuário>\Perfil  e  <usuário>\AppData
-├── 03_WiFi\          perfis de rede (.xml)
-├── 04_OutrasPastas\  pastas extras e outros discos
+BACKUP_PC/<PC>_<data>/
+├── 00_Info/          sistema, origem (windows/linux), log da cópia
+├── 01_Programas/     listas de programas para reinstalar
+├── 02_Usuarios/      arquivos e configurações de cada usuário
+├── 03_WiFi/          redes Wi-Fi
+├── 04_OutrasPastas/  pastas extras e outros discos
 └── RESUMO.txt
 ```
 
 ## Arquivos
 
-| Arquivo | Função |
-|---|---|
-| `0-ABRIR-PAINEL.bat` | Abre o painel com botões (`painel.ps1`) |
-| `1-FAZER-BACKUP.bat` | Atalho que roda `backup.ps1` |
-| `2-RESTAURAR-BACKUP.bat` | Atalho que roda `restaurar.ps1` |
-| `backup.ps1` | Faz o backup |
-| `restaurar.ps1` | Restaura o backup (menu interativo) |
-| `painel.ps1` | Janela gráfica (WPF) que chama os scripts acima |
-| `LEIA-ME.txt` | Guia rápido para quem vai usar o HD |
-
-## Requisitos
-
-- Windows 10 ou 11
-- Permissão de administrador
-- Internet no computador novo (para reinstalar os programas)
+```
+windows/
+├── 0-ABRIR-PAINEL.bat      abre o painel gráfico
+├── 1-FAZER-BACKUP.bat      atalho para backup.ps1
+├── 2-RESTAURAR-BACKUP.bat  atalho para restaurar.ps1
+├── painel.ps1              janela gráfica (WPF)
+├── backup.ps1              faz o backup
+├── restaurar.ps1           restaura o backup
+└── LEIA-ME.txt             guia rápido
+linux/
+├── backup.sh               faz o backup
+├── restaurar.sh            restaura o backup (também aceita backups do Windows)
+└── LEIA-ME.txt             guia rápido
+```
